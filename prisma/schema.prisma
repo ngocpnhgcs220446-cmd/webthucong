@@ -1,0 +1,222 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Service {
+  id                    String  @id @default(uuid())
+  slug                  String  @unique
+  category              String
+  title                 String
+  subtitle              String?
+  price                 String?
+  duration              String?
+  groupSize             String?
+  location              String?
+  image                 String
+  gallery               String // Stored as JSON string
+  highlights            String // Stored as JSON string
+  description           String
+  includes              String // Stored as JSON string
+  suitableFor           String // Stored as JSON string
+  featured              Boolean @default(false)
+  active                Boolean @default(true)
+  sortOrder             Int     @default(0)
+  minGuests             Int?
+  maxGuests             Int?
+  defaultEstimatedPrice Float?
+
+  // New Booking & Activity Page Fields
+  groupName             String?
+  shortDescription      String?
+  fullDescription       String?
+  freeCancellation      Boolean @default(true)
+  cancellationPolicy    String?
+  reserveNowPayLater    Boolean @default(true)
+  reservePolicy         String?
+  availabilityNote      String?
+  instructorDescription String?
+  languages             String? // Stored as JSON string
+  wheelchairAccessible  Boolean @default(false)
+  smallGroup            Boolean @default(false)
+  groupLimit            Int?
+
+  excludes        String? // Stored as JSON string
+  notAllowed      String? // Stored as JSON string
+  whatToBring     String? // Stored as JSON string
+  knowBeforeYouGo String? // JSON array of strings
+
+  // Tag system (JSON arrays)
+  experienceTags String?
+  bookingTags    String?
+  priorityTags   String?
+
+  meetingPointTitle       String?
+  meetingPointDescription String?
+  googleMapsUrl           String?
+  mapEmbed                String?
+
+  rating      Float @default(5.0)
+  reviewCount Int   @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  packages ServicePackage[]
+  reviews  ServiceReview[]
+}
+
+model ServicePackage {
+  id          String   @id @default(uuid())
+  serviceId   String
+  name        String
+  description String?
+  price       Float
+  currency    String   @default("USD")
+  priceLabel  String?
+  duration    String?
+  groupSize   String?
+  minGuests   Int?
+  maxGuests   Int?
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+}
+
+model ServiceReview {
+  id              String   @id @default(uuid())
+  serviceId       String
+  rating          Int
+  reviewerName    String
+  reviewerCountry String?
+  reviewDate      String?
+  verifiedBooking Boolean  @default(true)
+  content         String
+  active          Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+}
+
+model Lead {
+  id                      String    @id @default(uuid())
+  name                    String
+  email                   String
+  phone                   String
+  date                    String
+  guests                  Int
+  message                 String?
+  serviceId               String?
+  status                  String    @default("new") // new, contacted, quoted, deposit_paid, confirmed, completed, cancelled, lost
+  source                  String    @default("website")
+  serviceNameSnapshot     String?
+  packageId               String?
+  packageNameSnapshot     String?
+  packagePriceSnapshot    Float?
+  packageCurrencySnapshot String?
+  preferredContactMethod  String?
+  language                String?
+  budget                  String?
+  internalNote            String?
+  assignedTo              String?
+  estimatedRevenue        Int?      @default(0)
+  lastContactedAt         DateTime?
+  bookingDate             DateTime?
+  bookingEndDate          DateTime?
+  bookingLocation         String?
+  bookingType             String?
+  capacity                Int?
+  attendees               Int?
+  bookingNote             String?
+  lostReason              String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+}
+
+model Post {
+  id        String   @id @default(uuid())
+  slug      String   @unique
+  title     String
+  image     String
+  excerpt   String
+  content   String
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TeamMember {
+  id        String   @id @default(uuid())
+  name      String
+  role      String
+  bio       String
+  image     String
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Setting {
+  id    String @id @default(uuid())
+  key   String @unique
+  value String
+}
+
+model Testimonial {
+  id      String @id @default(uuid())
+  name    String
+  role    String
+  avatar  String
+  comment String
+}
+
+model Partner {
+  id   String @id @default(uuid())
+  name String
+  logo String
+}
+
+model FAQ {
+  id        String   @id @default(uuid())
+  question  String
+  answer    String
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AdminUser {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  name         String
+  role         String   @default("sales") // admin, sales
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model LeadActivity {
+  id        String   @id @default(uuid())
+  leadId    String
+  type      String
+  oldValue  String?
+  newValue  String?
+  note      String?
+  createdBy String?
+  createdAt DateTime @default(now())
+}
