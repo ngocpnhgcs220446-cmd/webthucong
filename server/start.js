@@ -1,12 +1,18 @@
 import { execSync } from 'child_process';
 import path from 'path';
+import fs from 'fs';
 
 // Provide a smart fallback for DATABASE_URL if missing
 if (!process.env.DATABASE_URL) {
   const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_PUBLIC_DOMAIN;
   let dbPath = 'file:./dev.db';
   if (isRailway) {
-    dbPath = 'file:/app/data/production.db';
+    if (fs.existsSync('/app/data')) {
+      dbPath = 'file:/app/data/production.db';
+    } else {
+      console.warn('[WARNING] Persistent volume at /app/data not found! Using ephemeral database ./production.db. Your data will be lost on the next deploy.');
+      dbPath = 'file:./production.db';
+    }
   } else if (process.env.NODE_ENV === 'production') {
     dbPath = 'file:./production.db';
   }
