@@ -39,11 +39,11 @@
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "latest",
     "recharts": "^3.9.2",
-    "vite": "latest"
+    "vite": "latest",
+    "prisma": "^6.19.3"
   },
   "devDependencies": {
     "concurrently": "^10.0.3",
-    "nodemon": "^3.1.14",
-    "prisma": "^6.19.3"
+    "nodemon": "^3.1.14"
   }
 }
