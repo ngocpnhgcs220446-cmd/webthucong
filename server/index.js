@@ -18,7 +18,7 @@ const { PrismaClient } = pkg;
 
 const prisma = new PrismaClient();
 const app = express();
-const PORT = process.env.PORT || 5001;
+const PORT = Number(process.env.PORT || 5001);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1503,24 +1503,57 @@ app.delete('/api/faqs/:id', authMiddleware, async (req, res) => {
   } catch (error) { res.status(500).json({ error: 'Failed to delete FAQ' }); }
 });
 
-const DIST_DIR = path.join(__dirname, '..', 'dist');
+const PROJECT_ROOT = path.resolve(__dirname, '..');
+const DIST_DIR = path.join(PROJECT_ROOT, 'dist');
+const INDEX_FILE = path.join(DIST_DIR, 'index.html');
+
+console.log('Production frontend paths:', {
+  projectRoot: PROJECT_ROOT,
+  distDir: DIST_DIR,
+  indexFile: INDEX_FILE,
+  distExists: fs.existsSync(DIST_DIR),
+  indexExists: fs.existsSync(INDEX_FILE),
+});
 
 // Serve uploaded pics
 app.use('/pics', express.static(PICS_DIR));
 
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(DIST_DIR));
-}
+  app.use(
+    express.static(DIST_DIR, {
+      index: false,
+      fallthrough: true,
+      maxAge: '1d',
+    })
+  );
 
-// 404 for unhandled API routes
-app.use('/api', (req, res) => {
-  res.status(404).json({ error: 'API endpoint not found' });
-});
+  app.use('/api', (req, res) => {
+    return res.status(404).json({ error: 'API route not found' });
+  });
 
-// SPA fallback for all other routes
-if (process.env.NODE_ENV === 'production') {
-  app.get(/(.*)/, (req, res) => {
-    res.sendFile(path.join(DIST_DIR, 'index.html'));
+  app.use('/assets', (req, res) => {
+    return res.status(404).type('text/plain').send('Frontend asset not found');
+  });
+
+  app.get(/(.*)/, (req, res, next) => {
+    if (
+      req.path.startsWith('/api/') ||
+      req.path.startsWith('/assets/') ||
+      req.path.startsWith('/pics/')
+    ) {
+      return next();
+    }
+
+    if (!fs.existsSync(INDEX_FILE)) {
+      return res.status(500).json({ error: 'Frontend build is missing' });
+    }
+
+    return res.sendFile(INDEX_FILE);
+  });
+} else {
+  // 404 for unhandled API routes in dev
+  app.use('/api', (req, res) => {
+    res.status(404).json({ error: 'API endpoint not found' });
   });
 }
 
@@ -1544,15 +1577,39 @@ app.use((error, req, res, next) => {
 });
 
 // Global Error Handler
-app.use((err, req, res, next) => {
-  console.error('[Global Error]', err);
+app.use((error, req, res, next) => {
+  console.error('Unhandled server error:', { method: req.method, path: req.path, message: error.message });
+  
+  if (res.headersSent) {
+    return next(error);
+  }
+
   if (process.env.NODE_ENV === 'production') {
-    res.status(err.status || 500).json({ error: 'Internal server error' });
+    res.status(error.status || 500).json({ error: 'Internal server error' });
   } else {
-    res.status(err.status || 500).json({ error: err.message, stack: err.stack });
+    res.status(error.status || 500).json({ error: error.message, stack: error.stack });
   }
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Backend server running on port ${PORT}`);
 });
+
+server.on('error', (error) => {
+  console.error('Server startup failed:', error);
+  process.exit(1);
+});
+
+async function shutdown(signal) {
+  console.log(`${signal} received. Shutting down...`);
+  server.close(async () => {
+    await prisma.$disconnect();
+    process.exit(0);
+  });
+  setTimeout(() => {
+    process.exit(1);
+  }, 10000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

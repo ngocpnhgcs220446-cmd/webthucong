@@ -1,11 +1,15 @@
 import { execSync } from 'child_process';
 import path from 'path';
 
-// Provide a smart fallback for DATABASE_URL if missing on deployment platforms
+// Provide a smart fallback for DATABASE_URL if missing
 if (!process.env.DATABASE_URL) {
-  const dbPath = process.env.NODE_ENV === 'production' 
-    ? 'file:/app/data/production.db' 
-    : 'file:./dev.db';
+  const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_PUBLIC_DOMAIN;
+  let dbPath = 'file:./dev.db';
+  if (isRailway) {
+    dbPath = 'file:/app/data/production.db';
+  } else if (process.env.NODE_ENV === 'production') {
+    dbPath = 'file:./production.db';
+  }
   process.env.DATABASE_URL = dbPath;
   console.log(`[Auto-Config] Environment variable DATABASE_URL was missing. Automatically set to: ${dbPath}`);
 }
