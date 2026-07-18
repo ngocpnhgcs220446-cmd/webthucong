@@ -1524,6 +1524,25 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
+// Multer Error Handler
+app.use((error, req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ success: false, error: 'Image must be smaller than 5 MB' });
+    }
+    if (error.code === 'LIMIT_UNEXPECTED_FILE') {
+      return res.status(400).json({ success: false, error: 'Invalid image upload field' });
+    }
+    return res.status(400).json({ success: false, error: 'Invalid image upload request' });
+  }
+
+  if (error?.message === 'Invalid file type. Only JPG, PNG and WEBP are allowed.') {
+    return res.status(400).json({ success: false, error: error.message });
+  }
+
+  return next(error);
+});
+
 // Global Error Handler
 app.use((err, req, res, next) => {
   console.error('[Global Error]', err);

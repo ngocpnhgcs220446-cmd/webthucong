@@ -16,7 +16,8 @@
     "db:migrate": "prisma migrate deploy",
     "db:seed": "node server/seed.js",
     "db:studio": "prisma studio",
-    "admin:create": "node server/create-admin.js"
+    "admin:create": "node server/create-admin.js",
+    "package": "tar --exclude='node_modules' --exclude='dist' --exclude='.env*' --exclude='*.db*' --exclude='.git' --exclude='__MACOSX' --exclude='.DS_Store' -czvf deploy-source.tar.gz ."
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
