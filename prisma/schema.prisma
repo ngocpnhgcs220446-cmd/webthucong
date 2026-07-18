@@ -20,6 +20,7 @@ model Service {
   duration              String?
   groupSize             String?
   location              String?
+  timeSlots             String? // Stored as JSON string of array of times
   image                 String
   gallery               String // Stored as JSON string
   highlights            String // Stored as JSON string
@@ -112,10 +113,11 @@ model ServiceReview {
 
 model Lead {
   id                      String    @id @default(uuid())
+  referenceCode           String    @unique
   name                    String
   email                   String
-  phone                   String
-  date                    String
+  phone                   String?
+  date                    String?
   guests                  Int
   message                 String?
   serviceId               String?
@@ -127,6 +129,7 @@ model Lead {
   packagePriceSnapshot    Float?
   packageCurrencySnapshot String?
   preferredContactMethod  String?
+  preferredTime           String?
   language                String?
   budget                  String?
   internalNote            String?

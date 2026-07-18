@@ -195,10 +195,19 @@ const testimonials = [
   }
 ];
 
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+
 const prisma = new PrismaClient({});
 
 async function main() {
   console.log(`Start seeding...`);
+
+  if (process.env.ALLOW_DESTRUCTIVE_SEED !== 'true') {
+    throw new Error(
+      'Destructive demo seed is disabled. Set ALLOW_DESTRUCTIVE_SEED=true only in development.'
+    );
+  }
   
   // Clear existing data
   await prisma.service.deleteMany();

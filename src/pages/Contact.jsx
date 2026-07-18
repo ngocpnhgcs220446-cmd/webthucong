@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Mail, MapPin, MessageCircle, Phone, Clock, ExternalLink, Link2, Share2 } from 'lucide-react';
+import { Mail, MapPin, MessageCircle, Phone, Clock, ExternalLink, Link2, Share2, User, CalendarDays, Users, Tag, ArrowRight, ChevronDown, CheckCircle2 } from 'lucide-react';
 import SEO from '../components/SEO';
 import PageTransition from '../components/PageTransition';
 import ScrollReveal from '../components/ScrollReveal';
 import { company } from '../data/initialData';
 import { trackEvent } from '../utils/analytics';
 import { useSettings } from '../context/SettingsContext';
+import { submitLeadAPI } from '../utils/apiUtils';
+import * as valid from '../utils/validation';
 import toast from 'react-hot-toast';
 
 const initialForm = {
@@ -14,6 +16,7 @@ const initialForm = {
   email: '',
   interestedService: '',
   preferredDate: '',
+  preferredTime: '',
   participants: '',
   message: ''
 };
@@ -34,31 +37,31 @@ function ContactCard({ icon: Icon, label, value, href, actionLabel }) {
   if (!hasValue(value)) return null;
   return (
     <div style={{
-      display: 'flex', alignItems: 'flex-start', gap: 14,
-      padding: '18px 20px', background: '#fff',
-      border: '1px solid #e9ecef', borderRadius: 16,
-      boxShadow: '0 1px 6px rgba(0,0,0,0.04)',
-    }}>
+      display: 'flex', alignItems: 'flex-start', gap: 16,
+      padding: '24px', background: '#fff',
+      border: '1px solid #e5e7eb', borderRadius: '20px',
+      boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+      transition: 'all 0.3s ease',
+      cursor: href ? 'pointer' : 'default'
+    }}
+    onMouseEnter={e => { if (href) e.currentTarget.style.transform = 'translateY(-2px)'; }}
+    onMouseLeave={e => { if (href) e.currentTarget.style.transform = 'translateY(0)'; }}
+    onClick={() => { if (href) window.open(href, href.startsWith('http') ? '_blank' : '_self'); }}
+    >
       <div style={{
-        width: 40, height: 40, background: '#f0fdf4', borderRadius: 10,
+        width: 48, height: 48, background: '#f0fdf4', borderRadius: '12px',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: '#166534', flexShrink: 0,
+        color: 'var(--green)', flexShrink: 0,
       }}>
-        <Icon size={18} strokeWidth={2} />
+        <Icon size={24} strokeWidth={2} />
       </div>
       <div>
-        <p style={{ fontSize: 12, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 3px' }}>
+        <p style={{ fontSize: 13, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 6px' }}>
           {label}
         </p>
-        {href ? (
-          <a href={href} target={href.startsWith('http') ? '_blank' : undefined}
-            rel="noreferrer"
-            style={{ fontSize: 15, fontWeight: 600, color: '#111827', textDecoration: 'none', display: 'block' }}>
-            {actionLabel || value}
-          </a>
-        ) : (
-          <p style={{ fontSize: 15, fontWeight: 600, color: '#111827', margin: 0 }}>{value}</p>
-        )}
+        <p style={{ fontSize: 16, fontWeight: 600, color: '#111827', margin: 0, lineHeight: 1.5 }}>
+          {actionLabel || value}
+        </p>
       </div>
     </div>
   );
@@ -71,17 +74,16 @@ function SocialBtn({ href, label, icon: Icon }) {
     <a href={normalizeUrl(href)} target="_blank" rel="noreferrer"
       aria-label={label}
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 7,
-        padding: '8px 16px', border: '1px solid #e5e7eb', borderRadius: 40,
+        display: 'inline-flex', alignItems: 'center', gap: 8,
+        padding: '12px 20px', border: '1px solid #e5e7eb', borderRadius: '12px',
         background: '#fff', color: '#374151', textDecoration: 'none',
-        fontSize: 13, fontWeight: 600,
-        transition: 'all 0.18s',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+        fontSize: 14, fontWeight: 600,
+        transition: 'all 0.2s',
       }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = '#166534'; e.currentTarget.style.color = '#166534'; e.currentTarget.style.background = '#f0fdf4'; }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--green)'; e.currentTarget.style.color = 'var(--green)'; e.currentTarget.style.background = '#f0fdf4'; }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.color = '#374151'; e.currentTarget.style.background = '#fff'; }}
     >
-      {Icon && <Icon size={14} />}
+      {Icon && <Icon size={18} />}
       {label}
     </a>
   );
@@ -89,25 +91,33 @@ function SocialBtn({ href, label, icon: Icon }) {
 
 export default function Contact() {
   const [form, setForm] = useState(initialForm);
-  const [done, setDone] = useState(false);
+  const [submittedData, setSubmittedData] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
-  const { settings, refreshSettings } = useSettings();
+  const { settings } = useSettings();
   const [services, setServices] = useState([]);
+
   useEffect(() => {
     fetch('/api/services').then(r => r.json()).then(setServices).catch(console.error);
   }, []);
 
   const update = (event) => {
-    setForm((prev) => ({ ...prev, [event.target.name]: event.target.value }));
-    setErrors((prev) => ({ ...prev, [event.target.name]: null }));
+    let { name, value } = event.target;
+    if (name === 'phone') value = value.replace(/\D/g, '').slice(0, 15);
+    if (name === 'name') value = value.replace(/[<>\{\}\[\]@#]/g, '');
+
+    setForm((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: null }));
   };
 
   const submit = async (event) => {
     event.preventDefault();
+    if (isSubmitting) return;
+
     setErrors({});
     setIsSubmitting(true);
     const toastId = toast.loading('Submitting inquiry...');
+    
     try {
       const selectedService = services.find(s => s.id === form.interestedService);
       let sId = '';
@@ -120,35 +130,32 @@ export default function Contact() {
         sName = form.interestedService;
       }
 
-      const res = await fetch('/api/leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          date: form.preferredDate,
-          guests: form.participants,
-          serviceId: sId,
-          serviceNameSnapshot: sName
-        })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        trackEvent('contact_form_submit', { service: sName });
-        toast.success('Inquiry submitted successfully!', { id: toastId });
-        setDone(true);
-        setForm(initialForm);
-      } else {
-        if (data.fields) {
-          setErrors(data.fields);
-          toast.error('Please fix validation errors', { id: toastId });
-        } else {
-          toast.error(data.error || 'Failed to submit inquiry', { id: toastId });
-        }
-      }
+      const payload = {
+        ...form,
+        date: form.preferredDate,
+        preferredTime: form.preferredTime,
+        guests: form.participants,
+        serviceId: sId,
+        serviceNameSnapshot: sName
+      };
+
+      const data = await submitLeadAPI(payload);
+      
+      trackEvent('contact_form_submit', { service: sName });
+      toast.success('Inquiry submitted successfully!', { id: toastId });
+      setSubmittedData(data);
+      setForm(initialForm);
     } catch (e) {
-      toast.error('Failed to submit inquiry', { id: toastId });
+      if (e.data && e.data.fields) {
+        setErrors(e.data.fields);
+        toast.error('Please fix validation errors', { id: toastId });
+      } else {
+        const errorMsg = e.data?.error || e.message || 'Failed to submit inquiry';
+        toast.error(errorMsg, { id: toastId });
+      }
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   // ── derived contact values ──────────────────────────────────────────────
@@ -169,102 +176,271 @@ export default function Contact() {
     { key: 'youtubeUrl', label: 'YouTube', icon: Link2 },
   ];
 
-  // Check if mapEmbed is a valid iframe src URL (not raw HTML)
   const isEmbedUrl = mapEmbed && !mapEmbed.trim().startsWith('<') && mapEmbed.includes('http');
 
   return (
     <PageTransition>
       <SEO title="Contact Us | Conical Hat-Workshop group" description="Get in touch with us via our contact form, phone, email, or social media." />
 
+      <style>{`
+        .contact-page-layout {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 48px;
+          align-items: flex-start;
+        }
+        @media (min-width: 1024px) {
+          .contact-page-layout {
+            grid-template-columns: 3fr 2fr;
+            gap: 64px;
+          }
+        }
+        .form-row {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 20px;
+        }
+        @media (min-width: 768px) {
+          .form-row {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+        .premium-input-wrap {
+          position: relative;
+        }
+        .premium-input-wrap > svg {
+          position: absolute;
+          left: 16px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: #9ca3af;
+          pointer-events: none;
+        }
+        .premium-input-wrap textarea ~ svg {
+          top: 18px;
+          transform: none;
+        }
+        .premium-input-wrap input, .premium-input-wrap select, .premium-input-wrap textarea {
+          padding-left: 48px;
+          padding-right: 16px;
+          width: 100%;
+          border: 1px solid #e5e7eb;
+          border-radius: 16px;
+          min-height: 52px;
+          font-size: 15px;
+          transition: all 0.2s ease;
+          background: #f9fafb;
+        }
+        .premium-input-wrap select {
+          -webkit-appearance: none;
+          -moz-appearance: none;
+          appearance: none;
+          padding-right: 48px;
+        }
+        .premium-input-wrap input:focus, .premium-input-wrap select:focus, .premium-input-wrap textarea:focus {
+          background: #fff;
+          border-color: var(--green);
+          box-shadow: 0 0 0 4px rgba(22, 101, 52, 0.1);
+          outline: none;
+        }
+        .premium-label {
+          display: block;
+          font-size: 14px;
+          font-weight: 600;
+          color: #374151;
+          margin-bottom: 8px;
+        }
+      `}</style>
+
       {/* Hero */}
-      <section className="page-hero-immersive">
+      <section className="page-hero-immersive" style={{ minHeight: '400px' }}>
         <img src="/pics/product5.jpg" alt="Contact us background" />
         <ScrollReveal className="page-hero-immersive-content">
-          <span className="eyebrow" style={{ color: 'var(--gold)' }}>Contact Us</span>
-          <h1>Get in Touch</h1>
-          <p>We'd love to hear from you. Send us a message and we'll get back to you as soon as possible.</p>
+          <span className="eyebrow" style={{ color: 'var(--gold)', letterSpacing: '2px', fontSize: '14px' }}>Let's Connect</span>
+          <h1 style={{ fontSize: 'clamp(2.5rem, 5vw, 4rem)', fontWeight: '800' }}>Get in Touch</h1>
+          <p style={{ fontSize: '18px', maxWidth: '600px', margin: '0 auto', color: 'rgba(255,255,255,0.9)' }}>
+            We'd love to hear from you. Send us a message and our team will respond within 24 hours.
+          </p>
         </ScrollReveal>
       </section>
 
-      <section className="section">
-        <div className="container contact-layout">
-          {/* ── Form ── */}
+      <section className="section" style={{ paddingTop: '80px', paddingBottom: '120px' }}>
+        <div className="container contact-page-layout">
+          
+          {/* ── Left Column: Form ── */}
           <ScrollReveal>
-            {done ? (
-              <div className="success-banner" style={{ padding: '40px', background: '#fff', borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0', textAlign: 'center' }}>
-                <h3 style={{ fontSize: '24px', marginBottom: '12px' }}>Thank you for your inquiry!</h3>
-                <p style={{ color: '#64748b' }}>We have received your message and will get back to you shortly.</p>
-                <button className="btn" onClick={() => setDone(false)} style={{ marginTop: '24px' }}>Send another message</button>
+            {submittedData ? (
+              <div style={{ padding: '64px 40px', background: '#fff', borderRadius: '32px', boxShadow: '0 20px 40px rgba(0,0,0,0.06)', border: '1px solid #f3f4f6', textAlign: 'center' }}>
+                <div style={{ width: '80px', height: '80px', background: '#f0fdf4', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+                  <CheckCircle2 size={40} color="var(--green)" />
+                </div>
+                <h3 style={{ fontSize: '32px', marginBottom: '16px', fontWeight: '800', color: '#111827' }}>Request Received!</h3>
+                <p style={{ fontSize: '18px', color: '#4b5563', marginBottom: '32px' }}>Thank you for reaching out. Our team will review your inquiry and contact you shortly.</p>
+                
+                <div style={{ background: '#f9fafb', padding: '24px', borderRadius: '16px', marginBottom: '32px', border: '1px dashed #cbd5e1', display: 'inline-block', textAlign: 'left' }}>
+                  <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '700' }}>Reference Code</p>
+                  <p style={{ margin: '0', fontSize: '28px', color: '#111827', fontWeight: '800', fontFamily: 'monospace' }}>{submittedData.lead.referenceCode}</p>
+                </div>
+
+                {submittedData.email?.customerConfirmation === 'failed' ? (
+                  <p style={{ color: '#92400e', margin: '0 auto 32px', backgroundColor: '#fef3c7', padding: '16px', borderRadius: '12px', maxWidth: '500px', fontSize: '15px', lineHeight: '1.6' }}>
+                    We received your request but couldn't send the confirmation email at this time. Please save your reference code above!
+                  </p>
+                ) : (
+                  <p style={{ color: '#4b5563', margin: '0 auto 32px', maxWidth: '500px', fontSize: '15px', lineHeight: '1.6' }}>
+                    A confirmation email has been sent to your address. Your booking is not confirmed until our team contacts you.
+                  </p>
+                )}
+                
+                <button className="btn btn-outline" onClick={() => setSubmittedData(null)} style={{ padding: '14px 32px', borderRadius: '40px' }}>
+                  Send another message
+                </button>
               </div>
             ) : (
-              <div style={{ padding: '40px', background: '#fff', borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
-                <h3 style={{ fontSize: '24px', marginBottom: '24px', color: '#0f172a' }}>Send us a message</h3>
-                <form className="form-grid contact-form" onSubmit={submit}>
-                  <label>Name <span style={{ color: 'red' }}>*</span>
-                    <input name="name" value={form.name} onChange={update} style={errors.name ? { borderColor: 'red' } : {}} required />
-                    {errors.name && <span style={{ color: 'red', fontSize: '12px', marginTop: '2px', display: 'block' }}>{errors.name}</span>}
-                  </label>
-                  <label>Phone number
-                    <input name="phone" value={form.phone} onChange={update} style={errors.contact ? { borderColor: 'red' } : {}} />
-                  </label>
-                  <label>Email
-                    <input type="email" name="email" value={form.email} onChange={update} style={errors.contact ? { borderColor: 'red' } : {}} />
-                  </label>
-                  {errors.contact && <span style={{ gridColumn: '1 / -1', color: 'red', fontSize: '12px' }}>{errors.contact}</span>}
+              <div style={{ padding: '48px', background: '#fff', borderRadius: '32px', boxShadow: '0 20px 40px rgba(0,0,0,0.06)', border: '1px solid #f3f4f6' }}>
+                <h3 style={{ fontSize: '28px', marginBottom: '32px', fontWeight: '800', color: '#111827' }}>Send us a message</h3>
+                <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  
+                  {/* Row 1: Name & Email */}
+                  <div className="form-row">
+                    <div>
+                      <label htmlFor="ct-name" className="premium-label">Full Name <span style={{ color: '#ef4444' }}>*</span></label>
+                      <div className="premium-input-wrap">
+                        <User size={20} />
+                        <input id="ct-name" name="name" value={form.name} onChange={update} style={errors.name ? { borderColor: '#ef4444' } : {}} required autoComplete="name" aria-invalid={Boolean(errors.name)} placeholder="John Doe" />
+                      </div>
+                      {errors.name && <p style={{ color: '#ef4444', fontSize: '13px', marginTop: '6px', margin: 0 }}>{errors.name}</p>}
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="ct-email" className="premium-label">Email Address <span style={{ color: '#ef4444' }}>*</span></label>
+                      <div className="premium-input-wrap">
+                        <Mail size={20} />
+                        <input id="ct-email" type="email" inputMode="email" name="email" value={form.email} onChange={update} maxLength={254} style={errors.email ? { borderColor: '#ef4444' } : {}} required autoComplete="email" aria-invalid={Boolean(errors.email)} placeholder="john@example.com" />
+                      </div>
+                      {errors.email && <p style={{ color: '#ef4444', fontSize: '13px', marginTop: '6px', margin: 0 }}>{errors.email}</p>}
+                    </div>
+                  </div>
 
-                  <label>
-                    Interested service <span style={{ color: 'red' }}>*</span>
-                    <select name="interestedService" value={form.interestedService} onChange={update} required style={errors.interestedService ? { borderColor: 'red' } : {}}>
-                      <option value="" disabled>Select a service</option>
-                      {services.map(s => (
-                        <option key={s.id} value={s.id}>{s.title}</option>
-                      ))}
-                      <option value="consultation">Not sure yet / Need consultation</option>
-                    </select>
-                    {errors.interestedService && <span style={{ color: 'red', fontSize: '12px', marginTop: '2px', display: 'block' }}>{errors.interestedService}</span>}
-                  </label>
+                  {/* Row 2: Phone & Service */}
+                  <div className="form-row">
+                    <div>
+                      <label htmlFor="ct-phone" className="premium-label">Phone Number</label>
+                      <div className="premium-input-wrap">
+                        <Phone size={20} />
+                        <input id="ct-phone" type="tel" inputMode="numeric" pattern="[0-9]*" maxLength={15} name="phone" value={form.phone} onChange={update} style={errors.phone ? { borderColor: '#ef4444' } : {}} autoComplete="tel" aria-invalid={Boolean(errors.phone)} placeholder="+1 234 567 890" />
+                      </div>
+                      {errors.phone && <p style={{ color: '#ef4444', fontSize: '13px', marginTop: '6px', margin: 0 }}>{errors.phone}</p>}
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="ct-service" className="premium-label">Interested Service <span style={{ color: '#ef4444' }}>*</span></label>
+                      <div className="premium-input-wrap">
+                        <Tag size={20} />
+                        <select id="ct-service" name="interestedService" value={form.interestedService} onChange={update} required style={errors.interestedService ? { borderColor: '#ef4444' } : {}} aria-invalid={Boolean(errors.interestedService)}>
+                          <option value="" disabled>Select a service</option>
+                          {services.map(s => (
+                            <option key={s.id} value={s.id}>{s.title}</option>
+                          ))}
+                          <option value="consultation">Not sure yet / Need consultation</option>
+                        </select>
+                        <ChevronDown size={20} style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }} />
+                      </div>
+                      {errors.interestedService && <p style={{ color: '#ef4444', fontSize: '13px', marginTop: '6px', margin: 0 }}>{errors.interestedService}</p>}
+                    </div>
+                  </div>
 
-                  <label>Preferred date<input type="date" name="preferredDate" value={form.preferredDate} onChange={update} /></label>
-                  <label>Participants<input type="number" name="participants" value={form.participants} onChange={update} placeholder="e.g. 20" min="1" /></label>
-                  <label className="full">Message<textarea rows="5" name="message" value={form.message} onChange={update} placeholder="Share your preferred format, venue, language, budget or special requests." style={{ resize: 'vertical' }} /></label>
-                  <button className="btn full" type="submit" disabled={isSubmitting} style={{ marginTop: '12px', padding: '14px', fontSize: '16px' }}>
-                    {isSubmitting ? 'Submitting...' : 'Submit booking inquiry'}
+                  {/* Row 3: Date & Time */}
+                  <div className="form-row">
+                    <div>
+                      <label htmlFor="ct-date" className="premium-label">Preferred Date</label>
+                      <div className="premium-input-wrap">
+                        <CalendarDays size={20} />
+                        <input id="ct-date" type="date" name="preferredDate" value={form.preferredDate} onChange={update} min={valid.getLocalDateString()} style={errors.date ? { borderColor: '#ef4444' } : {}} aria-invalid={Boolean(errors.date)} />
+                      </div>
+                      {errors.date && <p style={{ color: '#ef4444', fontSize: '13px', marginTop: '6px', margin: 0 }}>{errors.date}</p>}
+                    </div>
+
+                    {services.find(s => s.id === form.interestedService)?.timeSlots?.length > 0 ? (
+                      <div>
+                        <label htmlFor="ct-time" className="premium-label">Preferred Time</label>
+                        <div className="premium-input-wrap">
+                          <Clock size={20} />
+                          <select id="ct-time" name="preferredTime" value={form.preferredTime} onChange={update} required>
+                            <option value="" disabled>Select a time</option>
+                            {services.find(s => s.id === form.interestedService).timeSlots.map(t => (
+                              <option key={t} value={t}>{t}</option>
+                            ))}
+                          </select>
+                          <ChevronDown size={20} style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <label htmlFor="ct-guests" className="premium-label">Number of Participants</label>
+                        <div className="premium-input-wrap">
+                          <Users size={20} />
+                          <input id="ct-guests" type="number" inputMode="numeric" name="participants" value={form.participants} onChange={update} placeholder="e.g. 4" min="1" max="999" step="1" onKeyDown={(e) => { if (['e', 'E', '+', '-', '.'].includes(e.key)) e.preventDefault(); }} style={errors.participants ? { borderColor: '#ef4444' } : {}} aria-invalid={Boolean(errors.participants)} />
+                        </div>
+                        {errors.participants && <p style={{ color: '#ef4444', fontSize: '13px', marginTop: '6px', margin: 0 }}>{errors.participants}</p>}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Row 4: Guests if time was shown */}
+                  {services.find(s => s.id === form.interestedService)?.timeSlots?.length > 0 && (
+                    <div className="form-row">
+                      <div>
+                        <label htmlFor="ct-guests" className="premium-label">Number of Participants</label>
+                        <div className="premium-input-wrap">
+                          <Users size={20} />
+                          <input id="ct-guests" type="number" inputMode="numeric" name="participants" value={form.participants} onChange={update} placeholder="e.g. 4" min="1" max="999" step="1" onKeyDown={(e) => { if (['e', 'E', '+', '-', '.'].includes(e.key)) e.preventDefault(); }} style={errors.participants ? { borderColor: '#ef4444' } : {}} aria-invalid={Boolean(errors.participants)} />
+                        </div>
+                        {errors.participants && <p style={{ color: '#ef4444', fontSize: '13px', marginTop: '6px', margin: 0 }}>{errors.participants}</p>}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Message */}
+                  <div>
+                    <label htmlFor="ct-msg" className="premium-label">Message / Special Requests</label>
+                    <div className="premium-input-wrap">
+                      <MessageCircle size={20} />
+                      <textarea id="ct-msg" rows="5" name="message" value={form.message} onChange={update} placeholder="Tell us about your preferences, budget, or any questions you have..." style={{ paddingTop: '16px' }} />
+                    </div>
+                  </div>
+                  
+                  {/* Submit Button */}
+                  <button className="btn" type="submit" disabled={isSubmitting} style={{ marginTop: '8px', padding: '16px', fontSize: '16px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                    {isSubmitting ? 'Submitting...' : 'Submit Booking Inquiry'} 
+                    {!isSubmitting && <ArrowRight size={18} />}
                   </button>
                 </form>
               </div>
             )}
           </ScrollReveal>
 
-          {/* ── Contact Panel ── */}
+          {/* ── Right Column: Contact Panel ── */}
           <ScrollReveal delay={0.2}>
-            <aside className="contact-panel">
-              <h3>Contact information</h3>
-
-              {/* Public contact cards */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <ContactCard icon={Phone} label="Call us" value={phone}
-                  href={phone ? `tel:${phone.replace(/\s/g, '')}` : null}
-                  actionLabel={phone} />
-                <ContactCard icon={Mail} label="Email us" value={email}
-                  href={email ? `mailto:${email}` : null}
-                  actionLabel={email} />
-                <ContactCard icon={MapPin} label="Visit us" value={address} />
-                {hasValue(workingHours) && (
-                  <ContactCard icon={Clock} label="Working hours" value={workingHours} />
-                )}
-                {hasValue(mapsUrl) && (
-                  <a href={normalizeUrl(mapsUrl)} target="_blank" rel="noreferrer"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 18px', background: '#166534', color: '#fff', borderRadius: 10, textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>
-                    <ExternalLink size={15} /> Get directions
-                  </a>
-                )}
+            <aside style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+              
+              <div>
+                <h3 style={{ fontSize: '24px', fontWeight: '800', color: '#111827', marginBottom: '24px' }}>Contact Information</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <ContactCard icon={Phone} label="Call Us Anytime" value={phone} href={phone ? `tel:${phone.replace(/\s/g, '')}` : null} actionLabel={phone} />
+                  <ContactCard icon={Mail} label="Email Address" value={email} href={email ? `mailto:${email}` : null} actionLabel={email} />
+                  <ContactCard icon={MapPin} label="Our Location" value={address} />
+                  {hasValue(workingHours) && (
+                    <ContactCard icon={Clock} label="Working Hours" value={workingHours} />
+                  )}
+                </div>
               </div>
 
               {/* Social links */}
               {SOCIAL.some(s => hasValue(settings[s.key] || company[s.key])) && (
-                <div style={{ marginTop: 24 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Connect with us</p>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                <div>
+                  <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#111827', marginBottom: '16px' }}>Connect with us</h3>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
                     {SOCIAL.map(s => {
                       const url = settings[s.key] || company[s.key] || '';
                       return <SocialBtn key={s.key} href={url} label={s.label} icon={s.icon} />;
@@ -275,18 +451,24 @@ export default function Contact() {
 
               {/* Map */}
               {isEmbedUrl && (
-                <div style={{ marginTop: 24, borderRadius: 16, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
-                  <iframe
-                    title="Google Maps"
-                    src={mapEmbed}
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    style={{ width: '100%', height: 260, border: 0, display: 'block' }}
-                  />
-                  <a href={normalizeUrl(mapsUrl || mapEmbed)} target="_blank" rel="noreferrer"
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px', fontSize: 13, color: '#166534', fontWeight: 600, textDecoration: 'none', borderTop: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                    <ExternalLink size={13} /> Open in Google Maps
-                  </a>
+                <div>
+                  <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#111827', marginBottom: '16px' }}>Find Us</h3>
+                  <div style={{ borderRadius: '24px', overflow: 'hidden', border: '1px solid #e5e7eb', boxShadow: '0 10px 30px rgba(0,0,0,0.04)' }}>
+                    <iframe
+                      title="Google Maps"
+                      src={mapEmbed}
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      style={{ width: '100%', height: 280, border: 0, display: 'block' }}
+                    />
+                    <a href={normalizeUrl(mapsUrl || mapEmbed)} target="_blank" rel="noreferrer"
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '16px', fontSize: 14, color: 'var(--green)', fontWeight: 700, textDecoration: 'none', borderTop: '1px solid #e5e7eb', background: '#f9fafb', transition: 'background 0.2s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#f0fdf4'}
+                      onMouseLeave={e => e.currentTarget.style.background = '#f9fafb'}
+                    >
+                      <MapPin size={16} /> Open in Google Maps
+                    </a>
+                  </div>
                 </div>
               )}
             </aside>

@@ -4,13 +4,15 @@ import fs from 'fs';
 import rateLimit from 'express-rate-limit';
 import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import helmet from 'helmet';
 import 'dotenv/config';
-import { sendLeadNotification } from './email.js';
+import { sendAdminLeadNotification, sendCustomerLeadConfirmation, sendCustomerStatusChangeEmail } from './email.js';
+import * as valid from './utils/validation.js';
 import pkg from '@prisma/client';
 const { PrismaClient } = pkg;
 
@@ -53,9 +55,30 @@ function validateRequired(data, fields) {
   }
   return Object.keys(errors).length > 0 ? errors : null;
 }
+if (process.env.TRUST_PROXY === 'true') {
+  app.set('trust proxy', 1);
+}
 
-app.use(cors());
-app.use(express.json());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
+
+const allowedOrigins = String(process.env.ALLOWED_ORIGINS || process.env.PUBLIC_SITE_URL || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+      return callback(null, true);
+    }
+    return callback(new Error('Origin not allowed by CORS'));
+  }
+}));
+
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 /* 
 =========================================================
@@ -86,52 +109,81 @@ if (!fs.existsSync(PICS_DIR)) {
   fs.mkdirSync(PICS_DIR, { recursive: true });
 }
 
+const uploadLimits = { fileSize: 5 * 1024 * 1024 };
+const uploadFilter = (req, file, cb) => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only JPG, PNG and WEBP are allowed.'));
+  }
+};
+
+const cloudinaryCredentialsConfigured =
+  Boolean(process.env.CLOUDINARY_CLOUD_NAME?.trim()) &&
+  Boolean(process.env.CLOUDINARY_API_KEY?.trim()) &&
+  Boolean(process.env.CLOUDINARY_API_SECRET?.trim());
+
+let cloudinaryEnabled = false;
+
+if (cloudinaryCredentialsConfigured) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME.trim(),
+    api_key: process.env.CLOUDINARY_API_KEY.trim(),
+    api_secret: process.env.CLOUDINARY_API_SECRET.trim(),
+    secure: true,
+  });
+  cloudinaryEnabled = true;
+} else if (process.env.CLOUDINARY_URL) {
+  cloudinaryEnabled = true;
+}
+
 let upload;
-if (process.env.CLOUDINARY_URL) {
-  // Use Cloudinary if configured
-  const storage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-      folder: 'experience-platform',
-      allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
-    },
-  });
-  const fileFilter = (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only JPG, PNG and WEBP are allowed.'));
-    }
-  };
-  upload = multer({ 
-    storage, 
-    limits: { fileSize: 5 * 1024 * 1024 },
-    fileFilter
-  });
+if (cloudinaryEnabled) {
+  upload = multer({ storage: multer.memoryStorage(), limits: uploadLimits, fileFilter: uploadFilter });
 } else {
-  // Fallback to local disk storage
   const storage = multer.diskStorage({
     destination: function (req, file, cb) {
       cb(null, PICS_DIR);
     },
     filename: function (req, file, cb) {
-      const uniqueSuffix = Date.now() + '-' + Math.random().toString(36).substring(2, 8);
+      const uniqueSuffix = Date.now() + '-' + crypto.randomBytes(4).toString('hex');
       const safeExt = path.extname(file.originalname).toLowerCase();
       cb(null, 'upload-' + uniqueSuffix + safeExt);
     }
   });
-  upload = multer({ 
-    storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-    fileFilter: (req, file, cb) => {
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
-      if (allowedTypes.includes(file.mimetype)) {
-        cb(null, true);
-      } else {
-        cb(new Error('Invalid file type. Only JPG, PNG and WEBP are allowed.'));
+  upload = multer({ storage, limits: uploadLimits, fileFilter: uploadFilter });
+}
+
+function uploadBufferToCloudinary(buffer, options = {}) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        resource_type: 'image',
+        folder: options.folder || 'experience-platform/products',
+        unique_filename: true,
+        overwrite: false,
+        transformation: [
+          { width: 2000, height: 2000, crop: 'limit', quality: 'auto', fetch_format: 'auto' },
+        ],
+      },
+      (error, result) => {
+        if (error) { reject(error); return; }
+        if (!result?.secure_url) { reject(new Error('Cloudinary returned an invalid result')); return; }
+        resolve(result);
       }
-    }
+    );
+    stream.end(buffer);
+  });
+}
+
+async function deleteCloudinaryImage(publicId) {
+  if (!cloudinaryEnabled || !publicId) {
+    return { result: 'skipped' };
+  }
+  return cloudinary.uploader.destroy(publicId, {
+    resource_type: 'image',
+    invalidate: true,
   });
 }
 
@@ -158,39 +210,98 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-app.post('/api/login', async (req, res) => {
-  const { username, password } = req.body;
-  const adminUser = process.env.ADMIN_USERNAME;
-  const adminPass = process.env.ADMIN_PASSWORD;
+const loginRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Please try again later.' },
+});
+
+
+app.get('/api/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() });
+  } catch (error) {
+    res.status(503).json({ status: 'error', database: 'disconnected', timestamp: new Date().toISOString() });
+  }
+});
+
+app.post('/api/login', loginRateLimiter, async (req, res) => {
   const jwtSecret = process.env.JWT_SECRET;
 
-  if (!adminUser || !adminPass || !jwtSecret) {
-    console.warn('WARNING: ADMIN_USERNAME, ADMIN_PASSWORD or JWT_SECRET is missing from .env');
-    return res.status(500).json({ error: 'Server configuration error' });
+  if (!jwtSecret) {
+    console.error('JWT_SECRET is not configured');
+    return res.status(500).json({
+      error: 'Server configuration error',
+    });
   }
 
-  // 1. Check against DB users
-  const dbUser = await prisma.adminUser.findUnique({ where: { username } });
-  
+  const username = String(req.body.username || '').trim();
+  const password = String(req.body.password || '');
+
+  if (!username || !password) {
+    return res.status(400).json({
+      error: 'Username and password are required',
+    });
+  }
+
+  const dbUser = await prisma.adminUser.findUnique({
+    where: { username },
+  });
+
   if (dbUser) {
     if (!dbUser.active) {
-      return res.status(403).json({ error: 'Account disabled' });
+      return res.status(403).json({
+        error: 'Account disabled',
+      });
     }
-    const isValid = await bcrypt.compare(password, dbUser.passwordHash);
-    if (isValid) {
-      const token = jwt.sign({ id: dbUser.id, username: dbUser.username, role: dbUser.role }, jwtSecret, { expiresIn: '8h' });
-      return res.json({ token, user: { id: dbUser.id, username: dbUser.username, role: dbUser.role, name: dbUser.name } });
+
+    const passwordValid = await bcrypt.compare(
+      password,
+      dbUser.passwordHash
+    );
+
+    if (!passwordValid) {
+      return res.status(401).json({
+        error: 'Invalid credentials',
+      });
     }
-    return res.status(401).json({ error: 'Invalid credentials' });
+
+    const token = jwt.sign(
+      {
+        id: dbUser.id,
+        username: dbUser.username,
+        role: dbUser.role,
+      },
+      jwtSecret,
+      { expiresIn: '8h' }
+    );
+
+    return res.json({
+      token,
+      user: {
+        id: dbUser.id,
+        username: dbUser.username,
+        name: dbUser.name,
+        role: dbUser.role,
+      },
+    });
   }
 
-  // 2. Fallback to Super Admin from .env
-  if (username === adminUser && password === adminPass) {
-    const token = jwt.sign({ id: 'super-admin', username, role: 'super-admin' }, jwtSecret, { expiresIn: '8h' });
-    res.json({ token, user: { id: 'super-admin', username, role: 'super-admin', name: 'Super Admin' } });
-  } else {
-    res.status(401).json({ error: 'Invalid credentials' });
+  if (process.env.NODE_ENV !== 'production') {
+    const adminUser = process.env.ADMIN_USERNAME;
+    const adminPass = process.env.ADMIN_PASSWORD;
+    if (adminUser && adminPass && username === adminUser && password === adminPass) {
+      const token = jwt.sign({ id: 'super-admin', username, role: 'super-admin' }, jwtSecret, { expiresIn: '8h' });
+      return res.json({ token, user: { id: 'super-admin', username, role: 'super-admin', name: 'Super Admin' } });
+    }
   }
+
+  return res.status(401).json({
+    error: 'Invalid credentials',
+  });
 });
 
 app.get('/api/me', authMiddleware, (req, res) => {
@@ -198,26 +309,78 @@ app.get('/api/me', authMiddleware, (req, res) => {
   res.json({ user: req.user });
 });
 
-app.post('/api/upload', authMiddleware, (req, res) => {
-  upload.single('image')(req, res, (err) => {
-    if (err) {
-      return res.status(400).json({ error: err.message });
-    }
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
-    if (process.env.CLOUDINARY_URL) {
-      res.json({ url: req.file.path }); // Cloudinary returns URL in path
-    } else {
-      res.json({ 
-        url: `/pics/${req.file.filename}`,
-        filename: req.file.filename,
-        size: req.file.size,
-        mimetype: req.file.mimetype
+app.post(
+  '/api/upload',
+  authMiddleware,
+  upload.single('image'),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          error: 'Please select an image',
+        });
+      }
+
+      if (cloudinaryEnabled) {
+        const result = await uploadBufferToCloudinary(
+          req.file.buffer,
+          {
+            folder: 'experience-platform/products',
+          }
+        );
+
+        return res.status(201).json({
+          success: true,
+          imageUrl: result.secure_url,
+          image: {
+            url: result.secure_url,
+            publicId: result.public_id,
+            width: result.width,
+            height: result.height,
+            format: result.format,
+            bytes: result.bytes,
+          },
+        });
+      }
+
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(503).json({
+          success: false,
+          error: 'Image storage is not configured',
+        });
+      }
+
+      if (!req.file.filename) {
+        throw new Error(
+          'Local upload did not produce a filename'
+        );
+      }
+
+      const localUrl = `/pics/${req.file.filename}`;
+
+      return res.status(201).json({
+        success: true,
+        imageUrl: localUrl,
+        image: {
+          url: localUrl,
+          publicId: null,
+          filename: req.file.filename,
+        },
+      });
+    } catch (error) {
+      console.error(
+        'Image upload failed:',
+        error.message
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: 'Unable to upload image',
       });
     }
-  });
-});
+  }
+);
 
 // Get active services
 app.get('/api/services', async (req, res) => {
@@ -241,7 +404,8 @@ app.get('/api/services', async (req, res) => {
       knowBeforeYouGo: safeJsonParse(s.knowBeforeYouGo),
       experienceTags: safeJsonParse(s.experienceTags),
       bookingTags: safeJsonParse(s.bookingTags),
-      priorityTags: safeJsonParse(s.priorityTags)
+      priorityTags: safeJsonParse(s.priorityTags),
+      timeSlots: safeJsonParse(s.timeSlots)
     }));
     res.json(formattedServices);
   } catch (error) {
@@ -271,7 +435,8 @@ app.get('/api/admin/services', authMiddleware, async (req, res) => {
       knowBeforeYouGo: safeJsonParse(s.knowBeforeYouGo),
       experienceTags: safeJsonParse(s.experienceTags),
       bookingTags: safeJsonParse(s.bookingTags),
-      priorityTags: safeJsonParse(s.priorityTags)
+      priorityTags: safeJsonParse(s.priorityTags),
+      timeSlots: safeJsonParse(s.timeSlots)
     }));
     res.json(formattedServices);
   } catch (error) {
@@ -306,7 +471,8 @@ app.get('/api/services/slug/:slug', async (req, res) => {
       knowBeforeYouGo: safeJsonParse(service.knowBeforeYouGo),
       experienceTags: safeJsonParse(service.experienceTags),
       bookingTags: safeJsonParse(service.bookingTags),
-      priorityTags: safeJsonParse(service.priorityTags)
+      priorityTags: safeJsonParse(service.priorityTags),
+      timeSlots: safeJsonParse(service.timeSlots)
     };
     res.json(formattedService);
   } catch (error) {
@@ -319,9 +485,16 @@ app.get('/api/services/slug/:slug', async (req, res) => {
 app.post('/api/services', authMiddleware, async (req, res) => {
   try {
     const data = req.body;
+    const errors = {};
     
-    const errors = validateRequired(data, ['title', 'slug', 'category', 'price']);
-    if (errors) return res.status(400).json({ error: 'Validation failed', fields: errors });
+    if (!data.title?.trim()) errors.title = 'Title is required';
+    if (!data.category?.trim()) errors.category = 'Category is required';
+    if (!data.price) errors.price = 'Price is required';
+    
+    data.slug = valid.createSlug(data.slug || data.title);
+    if (!data.slug) errors.slug = 'Slug is required';
+    
+    if (Object.keys(errors).length > 0) return res.status(400).json({ error: 'Validation failed', fields: errors });
     
     if (data.minGuests && data.maxGuests && parseInt(data.minGuests) > parseInt(data.maxGuests)) {
       return res.status(400).json({ error: 'Validation failed', fields: { maxGuests: 'maxGuests must be >= minGuests' } });
@@ -392,7 +565,8 @@ app.post('/api/services', authMiddleware, async (req, res) => {
         
         experienceTags: ensureJsonString(data.experienceTags),
         bookingTags: ensureJsonString(data.bookingTags),
-        priorityTags: ensureJsonString(data.priorityTags)
+        priorityTags: ensureJsonString(data.priorityTags),
+        timeSlots: ensureJsonString(data.timeSlots)
       }
     });
 
@@ -430,8 +604,17 @@ app.put('/api/services/:id', authMiddleware, async (req, res) => {
     const { id } = req.params;
     const data = req.body;
     
-    const errors = validateRequired(data, ['title', 'slug', 'category', 'price']);
-    if (errors) return res.status(400).json({ error: 'Validation failed', fields: errors });
+    const errors = {};
+    if (data.title !== undefined && !data.title?.trim()) errors.title = 'Title is required';
+    if (data.category !== undefined && !data.category?.trim()) errors.category = 'Category is required';
+    if (data.price !== undefined && !data.price) errors.price = 'Price is required';
+    
+    if (data.slug !== undefined) {
+      data.slug = valid.createSlug(data.slug);
+      if (!data.slug) errors.slug = 'Slug is required';
+    }
+    
+    if (Object.keys(errors).length > 0) return res.status(400).json({ error: 'Validation failed', fields: errors });
     
     if (data.minGuests && data.maxGuests && parseInt(data.minGuests) > parseInt(data.maxGuests)) {
       return res.status(400).json({ error: 'Validation failed', fields: { maxGuests: 'maxGuests must be >= minGuests' } });
@@ -502,7 +685,8 @@ app.put('/api/services/:id', authMiddleware, async (req, res) => {
 
         experienceTags: ensureJsonString(data.experienceTags || []),
         bookingTags: ensureJsonString(data.bookingTags || []),
-        priorityTags: ensureJsonString(data.priorityTags || [])
+        priorityTags: ensureJsonString(data.priorityTags || []),
+        timeSlots: ensureJsonString(data.timeSlots || [])
       }
     });
 
@@ -565,7 +749,8 @@ app.put('/api/services/:id', authMiddleware, async (req, res) => {
       knowBeforeYouGo: safeJsonParse(updatedService.knowBeforeYouGo),
       experienceTags: safeJsonParse(updatedService.experienceTags),
       bookingTags: safeJsonParse(updatedService.bookingTags),
-      priorityTags: safeJsonParse(updatedService.priorityTags)
+      priorityTags: safeJsonParse(updatedService.priorityTags),
+      timeSlots: safeJsonParse(updatedService.timeSlots)
     };
     res.json(response);
   } catch (error) {
@@ -809,60 +994,133 @@ const leadLimiter = rateLimit({
 app.post('/api/leads', leadLimiter, async (req, res) => {
   try {
     const data = req.body;
-    
     const errors = {};
-    if (!data.name || data.name.trim() === '') errors.name = 'Name is required';
-    if (!data.email && !data.phone) errors.contact = 'Email or phone is required';
-    if (Object.keys(errors).length > 0) return res.status(400).json({ error: 'Validation failed', fields: errors });
-
-    // Fallback logic to parse guests from either guests or participants field
-    // It extracts the first number found in the string (e.g. "About 20 people" -> 20)
-    const rawGuests = String(data.guests || data.participants || '1');
-    const match = rawGuests.match(/\d+/);
-    let parsedGuests = match ? parseInt(match[0], 10) : 1;
     
-    // Ensure guests is within a reasonable range (1 to 999)
-    if (parsedGuests < 1) parsedGuests = 1;
-    if (parsedGuests > 999) parsedGuests = 999;
+    const name = valid.normalizeName(data.name);
+    const email = valid.normalizeEmail(data.email);
+    const phone = valid.normalizePhone(data.phone);
+    const date = String(data.date || data.preferredDate || '').trim();
+    const message = String(data.message || '').trim().slice(0, 2000);
 
-    let snapshot = data.serviceNameSnapshot || 'Need consultation';
-    let serviceId = data.serviceId || '';
+    const nameErr = valid.validateName(name, true);
+    if (nameErr) errors.name = nameErr;
+    
+    const emailErr = valid.validateEmail(email, true);
+    if (emailErr) errors.email = emailErr;
+    
+    const phoneErr = valid.validatePhone(phone, false);
+    if (phoneErr) errors.phone = phoneErr;
+
+    const dateErr = valid.validateDateString(date, false, false);
+    if (dateErr && date) errors.date = dateErr;
+
+    const rawGuests = String(data.guests || data.participants || '1');
+    const parsedGuests = parseInt(rawGuests, 10);
+    const guestErr = valid.validateInteger(parsedGuests, 1, 999, true);
+    if (guestErr) errors.participants = guestErr;
+
+    if (Object.keys(errors).length > 0) {
+      return res.status(400).json({ error: 'Validation failed', fields: errors });
+    }
+
+    let serviceNameSnapshot = 'Need consultation';
+    let serviceId = (data.serviceId || '').trim();
+    let packageId = (data.packageId || '').trim();
+    let packageNameSnapshot = null;
+    let packagePriceSnapshot = null;
+    let packageCurrencySnapshot = null;
 
     if (serviceId) {
       const service = await prisma.service.findUnique({ where: { id: serviceId } });
-      if (service) {
-        snapshot = service.title;
+      if (!service || !service.active) {
+        return res.status(400).json({ error: 'Validation failed', fields: { serviceId: 'Invalid or inactive service' } });
+      }
+      serviceNameSnapshot = service.title;
+
+      if (packageId) {
+        const pkg = await prisma.servicePackage.findFirst({
+          where: { id: packageId, serviceId: serviceId, active: true }
+        });
+        if (!pkg) {
+          return res.status(400).json({ error: 'Validation failed', fields: { packageId: 'Invalid or inactive package for this service' } });
+        }
+        packageNameSnapshot = pkg.name;
+        packagePriceSnapshot = pkg.price;
+        packageCurrencySnapshot = pkg.currency;
+      }
+    } else {
+      serviceId = null;
+      packageId = null;
+    }
+
+    const datePrefix = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    let newLead = null;
+    let retries = 3;
+    
+    while (retries > 0 && !newLead) {
+      try {
+        const random = crypto.randomBytes(4).toString('hex').toUpperCase();
+        const referenceCode = `REQ-${datePrefix}-${random}`;
+        
+        newLead = await prisma.lead.create({
+          data: {
+            referenceCode,
+            name,
+            email,
+            phone: phone || null,
+            date: date || null,
+            preferredTime: data.preferredTime || null,
+            guests: parsedGuests,
+            message: message || null,
+            serviceId,
+            serviceNameSnapshot,
+            packageId,
+            packageNameSnapshot,
+            packagePriceSnapshot,
+            packageCurrencySnapshot,
+            source: data.source || 'website',
+          }
+        });
+      } catch (err) {
+        if (err.code === 'P2002' && err.meta?.target?.includes('referenceCode')) {
+          retries--;
+          if (retries === 0) throw err;
+        } else {
+          throw err;
+        }
       }
     }
 
-    const newLead = await prisma.lead.create({
-      data: {
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        date: data.date,
-        guests: parsedGuests,
-        message: data.message || '',
-        serviceId: data.serviceId || null,
-        serviceNameSnapshot: snapshot,
-        packageId: data.packageId || null,
-        packageNameSnapshot: data.packageNameSnapshot || null,
-        packagePriceSnapshot: data.packagePriceSnapshot ? parseFloat(data.packagePriceSnapshot) : null,
-        packageCurrencySnapshot: data.packageCurrencySnapshot || null,
-        source: data.source || 'website',
-        preferredContactMethod: data.preferredContactMethod,
-        language: data.language,
-        budget: data.budget,
-        internalNote: data.internalNote,
-        assignedTo: data.assignedTo,
-        estimatedRevenue: data.estimatedRevenue ? parseInt(data.estimatedRevenue, 10) : 0,
-        lastContactedAt: data.lastContactedAt ? new Date(data.lastContactedAt) : null
+    const [adminResult, customerResult] = await Promise.allSettled([
+      sendAdminLeadNotification(newLead),
+      sendCustomerLeadConfirmation(newLead)
+    ]);
+
+    const adminNotificationStatus = adminResult.status === 'fulfilled' ? adminResult.value : 'failed';
+    const customerConfirmationStatus = customerResult.status === 'fulfilled' ? customerResult.value : 'failed';
+
+    if (adminResult.status === 'rejected') {
+      console.error('[Email Error] Admin notification failed:', adminResult.reason);
+    }
+    if (customerResult.status === 'rejected') {
+      console.error('[Email Error] Customer confirmation failed:', customerResult.reason);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Registration submitted successfully',
+      lead: {
+        id: newLead.id,
+        referenceCode: newLead.referenceCode,
+        name: newLead.name,
+        email: newLead.email,
+        serviceNameSnapshot: newLead.serviceNameSnapshot
+      },
+      email: {
+        adminNotification: adminNotificationStatus,
+        customerConfirmation: customerConfirmationStatus
       }
     });
-
-    sendLeadNotification(newLead).catch(console.error);
-
-    res.status(201).json(newLead);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to create lead' });
@@ -878,9 +1136,24 @@ app.put('/api/leads/:id', authMiddleware, async (req, res) => {
     const errors = {};
     const validStatuses = ['new', 'contacted', 'quoted', 'deposit_paid', 'confirmed', 'completed', 'cancelled', 'lost'];
     if (data.status && !validStatuses.includes(data.status)) errors.status = 'Invalid status';
-    if (data.status === 'lost' && (!data.lostReason || data.lostReason.trim() === '')) errors.lostReason = 'Lost reason is required';
-    const revenue = Number(data.estimatedRevenue);
-    if (data.estimatedRevenue !== undefined && (!Number.isFinite(revenue) || revenue < 0)) errors.estimatedRevenue = 'Revenue must be a valid non-negative number';
+    
+    if (data.status === 'lost') {
+      const lostReasonErr = valid.validateText(data.lostReason, 500, true);
+      if (lostReasonErr) errors.lostReason = lostReasonErr;
+    }
+    
+    let revenue;
+    if (data.estimatedRevenue !== undefined && data.estimatedRevenue !== '') {
+      revenue = Number(data.estimatedRevenue);
+      const revErr = valid.validateAmount(revenue, 0, 1000000000, false);
+      if (revErr) errors.estimatedRevenue = revErr;
+    }
+
+    if (data.internalNote !== undefined) {
+      const internalNoteErr = valid.validateText(data.internalNote, 5000, false);
+      if (internalNoteErr) errors.internalNote = internalNoteErr;
+    }
+
     if (Object.keys(errors).length > 0) return res.status(400).json({ error: 'Validation failed', fields: errors });
 
     const existingLead = await prisma.lead.findUnique({ where: { id } });
@@ -906,9 +1179,19 @@ app.put('/api/leads/:id', authMiddleware, async (req, res) => {
         capacity: data.capacity !== undefined ? parseInt(data.capacity, 10) : undefined,
         attendees: data.attendees !== undefined ? parseInt(data.attendees, 10) : undefined,
         bookingNote: data.bookingNote,
-        lostReason: data.lostReason !== undefined ? data.lostReason : undefined
+        lostReason: data.status === 'lost' ? data.lostReason : null
       }
     });
+
+    let emailStatus = 'skipped';
+    if (data.status && data.status !== existingLead.status) {
+      try {
+        emailStatus = await sendCustomerStatusChangeEmail(updatedLead, data.status);
+      } catch (err) {
+        console.error('[Email Error] Failed to send status update:', err);
+        emailStatus = 'failed';
+      }
+    }
 
     if (data.status && existingLead.status !== data.status) {
       await prisma.leadActivity.create({
@@ -922,7 +1205,7 @@ app.put('/api/leads/:id', authMiddleware, async (req, res) => {
       });
     }
 
-    res.json(updatedLead);
+    res.json({ ...updatedLead, emailStatus });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to update lead' });
@@ -993,17 +1276,30 @@ app.get('/api/settings', async (req, res) => {
 app.put('/api/settings', authMiddleware, async (req, res) => {
   try {
     const updates = req.body; 
+    const errors = {};
     
-    // Validation for specific keys
-    if (updates.companyName !== undefined && updates.companyName.trim() === '') {
-      return res.status(400).json({ error: 'Validation failed', fields: { companyName: 'Company Name is required' } });
+    if (updates.companyName !== undefined) {
+      const err = valid.validateName(updates.companyName, true);
+      if (err) errors.companyName = err;
     }
-    if (updates.email !== undefined && updates.email.trim() === '') {
-      return res.status(400).json({ error: 'Validation failed', fields: { email: 'Email is required' } });
+    if (updates.email !== undefined) {
+      const err = valid.validateEmail(updates.email, true);
+      if (err) errors.email = err;
     }
-    if (updates.hotline !== undefined && updates.hotline.trim() === '') {
-      return res.status(400).json({ error: 'Validation failed', fields: { hotline: 'Hotline/Phone is required' } });
+    if (updates.hotline !== undefined) {
+      const err = valid.validatePhone(updates.hotline, true);
+      if (err) errors.hotline = err;
     }
+    
+    // Validate social links
+    ['facebookUrl', 'instagramUrl', 'tripadvisorUrl', 'googleMapsUrl'].forEach(key => {
+      if (updates[key] !== undefined && updates[key].trim() !== '') {
+        const err = valid.isValidHttpUrl(updates[key], false);
+        if (err) errors[key] = err;
+      }
+    });
+
+    if (Object.keys(errors).length > 0) return res.status(400).json({ error: 'Validation failed', fields: errors });
     for (const [key, value] of Object.entries(updates)) {
       await prisma.setting.upsert({
         where: { key },
@@ -1209,15 +1505,35 @@ app.delete('/api/faqs/:id', authMiddleware, async (req, res) => {
 
 const DIST_DIR = path.join(__dirname, '..', 'dist');
 
+// Serve uploaded pics
+app.use('/pics', express.static(PICS_DIR));
+
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(DIST_DIR));
+}
 
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api')) return next();
+// 404 for unhandled API routes
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'API endpoint not found' });
+});
+
+// SPA fallback for all other routes
+if (process.env.NODE_ENV === 'production') {
+  app.get(/(.*)/, (req, res) => {
     res.sendFile(path.join(DIST_DIR, 'index.html'));
   });
 }
 
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error('[Global Error]', err);
+  if (process.env.NODE_ENV === 'production') {
+    res.status(err.status || 500).json({ error: 'Internal server error' });
+  } else {
+    res.status(err.status || 500).json({ error: err.message, stack: err.stack });
+  }
+});
+
 app.listen(PORT, () => {
-  console.log(`Backend server running on http://localhost:${PORT}`);
+  console.log(`Backend server running on port ${PORT}`);
 });

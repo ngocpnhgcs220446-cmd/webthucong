@@ -88,7 +88,13 @@ export default function SmartProductForm({ onClose, onSuccess, onOpenEditor }) {
   });
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    let { name, value, type, checked } = e.target;
+    
+    // Quick sanitization
+    if (name === 'defaultEstimatedPrice') {
+      value = value.replace(/[^0-9.]/g, ''); // only allow digits and dots
+    }
+    
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value

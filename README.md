@@ -1,127 +1,99 @@
-# Experience Studio — Workshop / Travel / Online Experience Platform
+# Experience Platform
 
-A full React + Vite business website for a real workshop / travel experience / online workshop / DIY kit company.
+A complete web platform for managing and booking workshop experiences. Built with Vite, React, Express, and Prisma (SQLite).
 
-The project is designed for **lead generation**: users browse services, click booking/inquiry, submit a form, and the sales team follows up using the built-in mini-CRM dashboard.
+## Requirements
 
----
+- **Node.js**: v20 or higher
+- **NPM**: v10 or higher
 
-## 1. Project Overview
+## Production Deployment Guide
 
-This project is a single full-stack MVP ready for production. 
-**Note:** There is ONLY ONE main frontend app. There is no separate `admin/` folder. All admin features are tightly integrated into the main app via `/admin/*` routes.
-
-- **Frontend**: React, Vite, React Router DOM, Lucide React, CSS responsive design.
-- **Backend**: Express.js (runs on port 5001).
-- **Database**: Prisma ORM with SQLite (`dev.db`).
-- **Admin CMS**: Protected by JWT authentication (`/api/me`). Located inside `src/pages/`.
-- **Lead Management**: Full Mini-CRM with filters, status updates, internal notes, and CSV export.
-
----
-
-## 2. Folder Structure
-
-```text
-experience-platform/
-├── .env.example
-├── .gitignore
-├── index.html
-├── package.json
-├── prisma/
-│   └── schema.prisma        # Database schema
-├── public/                  # Static assets and uploaded images
-├── server/
-│   ├── index.js             # Express backend server
-│   ├── email.js             # Email notification helper
-│   └── seed.js              # Database seed script
-└── src/
-    ├── App.jsx              # Routing & ProtectedRoute
-    ├── components/          # Reusable UI components
-    ├── context/             # AuthContext for JWT validation
-    ├── data/                # Static fallback data
-    ├── pages/               # React pages (Home, Services, Contact, etc.)
-    └── utils/               # Helpers (apiFetch, analytics)
-```
-
----
-
-## 3. How to Setup and Run Locally
-
-Follow these steps to clean-install and start the project:
-
-### Local Development
+### 1. Clean Installation
+Always use a clean install to avoid dependency conflicts:
 ```bash
-npm install
-npm run db:generate
-npm run db:push
-npm run db:seed
-npm run dev
+npm ci
 ```
 
-### Production Build & Start
+### 2. Environment Variables (.env)
+Use `.env.example` as a template for your production `.env` file. Do NOT put your `.env` file in source control or inside a Docker image build step.
+
+```env
+NODE_ENV=production
+PORT=5001
+
+PUBLIC_SITE_URL=https://your-domain.com
+ALLOWED_ORIGINS=https://your-domain.com
+TRUST_PROXY=true # If behind Render, Railway, or Nginx
+
+# SQLite Persistence Path
+DATABASE_URL="file:/app/data/production.db"
+
+JWT_SECRET=your-very-long-random-secret
+
+# Used ONLY to seed the first AdminUser
+INITIAL_ADMIN_USERNAME=admin
+INITIAL_ADMIN_PASSWORD=your-secure-password
+INITIAL_ADMIN_NAME=Administrator
+
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-gmail@gmail.com
+# MUST be a Google App Password, not your real password
+SMTP_PASS=xxxx xxxx xxxx xxxx
+SMTP_FROM=your-gmail@gmail.com
+ADMIN_NOTIFY_EMAIL=admin@your-domain.com
+
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+
+# Do NOT set this to true in production
+ALLOW_DESTRUCTIVE_SEED=false
+```
+
+**⚠️ Secret Rotation Warning:**
+If you previously uploaded your source code with a `.env` file containing real passwords, you MUST immediately rotate (change) your Google App Password, JWT Secret, Cloudinary Secret, and Admin Password.
+
+### 3. Database Migration (Pre-deploy)
+You MUST run migrations against your production database before starting the server.
+```bash
+npm run db:migrate
+```
+
+### 4. Create Production Admin
+Create the initial admin user using the script. This relies on the `INITIAL_ADMIN_USERNAME` and `INITIAL_ADMIN_PASSWORD` in your `.env` file:
+```bash
+npm run admin:create
+```
+*(The old fallback using `ADMIN_USERNAME` and `ADMIN_PASSWORD` directly is disabled in production for security.)*
+
+### 5. Build and Start
 ```bash
 npm run build
-NODE_ENV=production npm start
+npm start
 ```
-Open `http://localhost:5001` in your browser. (Express will serve the built React app from `/dist`).
 
-### What NOT to commit/send:
-Do not upload the following files/folders to version control or production servers:
-- `node_modules`
-- `dist`
-- `.env`
-- `*.db` (e.g. `dev.db`)
+## Docker Deployment
 
-### Deploy Render/Railway:
-- **Build command:** `npm install && npm run db:generate && npm run build`
-- **Start command:** `npm start`
-- **Environment variables:**
-  - `NODE_ENV=production`
-  - `PORT=5001`
-  - `DATABASE_URL=file:./dev.db`
-  - `ADMIN_USERNAME=admin`
-  - `ADMIN_PASSWORD=<strong-password>`
-  - `JWT_SECRET=<long-random-secret>`
-  - `SMTP_*` (optional for emails)
-  - `CLOUDINARY_URL` (optional for image uploads)
+This project includes a multi-stage Dockerfile that builds and runs the application securely.
 
-> **Note:** SQLite is only good for MVP/low traffic. If deployed to serverless environments (Vercel/Netlify), local file uploads (`public/pics`) will reset; you MUST use Cloudinary.
+```bash
+docker build -t experience-platform .
+docker run -d --name experience-platform \
+  -p 5001:5001 \
+  --env-file .env \
+  -v $(pwd)/data:/app/data \
+  experience-platform
+```
 
----
+> **Note on Persistence**: Ensure you mount a persistent volume to `/app/data` to prevent your SQLite database (`/app/data/production.db`) from being wiped when the container restarts.
 
-## 4. API Overview
+## Cloudinary vs Local Storage
 
-**Public APIs (No token required)**
-- `GET /api/services` - List all services
-- `GET /api/services/:slug` - Get single service
-- `POST /api/leads` - Create a new booking inquiry (triggers email notification)
-- `POST /api/login` - Authenticate admin, returns JWT
-- `GET /api/settings` - Get homepage settings
-- `GET /api/testimonials`, `GET /api/partners`, `GET /api/posts`
+- **Production**: Requires Cloudinary. Configure `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET`. If missing, the API will safely return a 503 error rather than attempting to write to the local disk.
+- **Development**: If Cloudinary variables are missing, the server will gracefully fallback to local disk storage (`public/pics`).
 
-**Admin APIs (Require Authorization: Bearer <token>)**
-- `GET /api/me` - Verify JWT token validity
-- `GET /api/leads` - List leads with filters (`status`, `q`, `from`, `to`)
-- `GET /api/leads/export` - Export leads to CSV
-- `PUT /api/leads/:id` - Update lead status, internal notes, assigned to
-- `POST /api/services`, `PUT /api/services/:id`, `DELETE /api/services/:id`
-- `POST /api/upload` - Upload images (Max 5MB)
-- `PUT /api/settings` - Update homepage layout
-
----
-
-## 5. Production Notes
-
-Before going live with real traffic:
-1. **Change Secrets**: Update `ADMIN_PASSWORD` and `JWT_SECRET` in `.env`.
-2. **Database Limitation**: SQLite is only good for low-traffic sites. For high traffic, change `provider = "sqlite"` to `"postgresql"` in `schema.prisma` and use a cloud DB like Supabase.
-3. **File Uploads**: The current `/api/upload` saves files locally to `public/pics`. This works fine on a VPS, but **will break** if deployed to serverless environments (Vercel/Netlify). You MUST modify `server/index.js` to use Cloudinary, AWS S3, or Cloudflare R2 for uploads.
-
----
-
-## 6. Troubleshooting
-
-- **Build / Rolldown / Vite Error**: "Cannot find module @rolldown/binding...". 
-  **Fix**: Delete `node_modules` and `package-lock.json`, then run `npm install`. This happens when cloning from a different OS.
-- **Prisma Error**: "Table not found" or "Client is out of date". 
-  **Fix**: Run `npm run db:generate` followed by `npm run db:push`.
+## Security Notes
+- Never run `npm run db:seed` in production with `ALLOW_DESTRUCTIVE_SEED=true`. It will completely wipe your database.
+- Backup your SQLite database regularly by copying the `.db` file.

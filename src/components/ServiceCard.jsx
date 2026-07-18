@@ -11,7 +11,7 @@ export default function ServiceCard({ service }) {
             <Star size={14} fill="currentColor" /> {service.priorityTags && service.priorityTags.length > 0 ? service.priorityTags[0] : 'Signature'}
           </div>
         )}
-        <span>{service.price}</span>
+        <span>{/^\d+(\.\d+)?$/.test(String(service.price).trim()) ? `From $${service.price} / person` : service.price}</span>
       </Link>
       <div className="service-body">
         <p className="service-category">{service.category}</p>

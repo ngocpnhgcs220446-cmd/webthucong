@@ -1,6 +1,20 @@
 import { Link } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
-import { MessageCircle, Phone, MapPin, Mail, Phone as PhoneIcon, Share2 } from 'lucide-react';
+import { MessageCircle, Phone, MapPin, Mail, Phone as PhoneIcon, MessageSquare } from 'lucide-react';
+
+const Facebook = ({ size = 24, ...props }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
+  </svg>
+);
+
+const Instagram = ({ size = 24, ...props }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+  </svg>
+);
 
 function normalizeUrl(url) {
   if (!url) return '';
@@ -34,7 +48,7 @@ export default function Footer() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <h4>Contact</h4>
           {hasValue(settings.hotline) && (
-            <a href={`tel:${settings.hotline.replace(/\s/g, '')}`} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <a href={`tel:${settings.hotline.replace(/\\s/g, '')}`} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <PhoneIcon size={16} />
               {settings.hotline}
             </a>
@@ -58,22 +72,22 @@ export default function Footer() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
             {hasValue(settings.facebookUrl) && (
               <a href={normalizeUrl(settings.facebookUrl)} target="_blank" rel="noreferrer" aria-label="Facebook" className="social-icon-btn">
-                <Share2 size={20} />
+                <Facebook size={20} />
               </a>
             )}
             {hasValue(settings.instagramUrl) && (
               <a href={normalizeUrl(settings.instagramUrl)} target="_blank" rel="noreferrer" aria-label="Instagram" className="social-icon-btn">
-                <Share2 size={20} />
+                <Instagram size={20} />
               </a>
             )}
             {hasValue(settings.whatsappUrl) && (
               <a href={normalizeUrl(settings.whatsappUrl)} target="_blank" rel="noreferrer" aria-label="WhatsApp" className="social-icon-btn">
-                <Phone size={20} />
+                <MessageCircle size={20} />
               </a>
             )}
             {hasValue(settings.zaloUrl) && (
               <a href={normalizeUrl(settings.zaloUrl)} target="_blank" rel="noreferrer" aria-label="Zalo" className="social-icon-btn">
-                <MessageCircle size={20} />
+                <MessageSquare size={20} />
               </a>
             )}
             {hasValue(settings.messengerUrl) && (

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server/index.js",
+    "server": "node server/index.js",
     "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
     "dev:client": "vite",
     "dev:server": "nodemon server/index.js",
@@ -12,22 +13,25 @@
     "preview": "vite preview",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
+    "db:migrate": "prisma migrate deploy",
     "db:seed": "node server/seed.js",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "admin:create": "node server/create-admin.js"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.3",
     "@vitejs/plugin-react": "latest",
     "bcryptjs": "^3.0.3",
-    "cloudinary": "^1.41.3",
+    "cloudinary": "^2.10.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
     "framer-motion": "^12.42.2",
+    "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "latest",
     "multer": "^2.2.0",
-    "multer-storage-cloudinary": "^4.0.0",
     "nodemailer": "^9.0.3",
     "react": "latest",
     "react-dom": "latest",
@@ -37,7 +41,6 @@
     "vite": "latest"
   },
   "devDependencies": {
-    "@prisma/client": "^6.19.3",
     "concurrently": "^10.0.3",
     "nodemon": "^3.1.14",
     "prisma": "^6.19.3"

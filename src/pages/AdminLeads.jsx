@@ -61,6 +61,22 @@ export default function AdminLeads() {
       });
   };
 
+  const [selectedLead, setSelectedLead] = useState(null);
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'new': return { bg: '#e0f2fe', text: '#0369a1' };
+      case 'contacted': return { bg: '#fef08a', text: '#854d0e' };
+      case 'quoted': return { bg: '#fef3c7', text: '#b45309' };
+      case 'deposit_paid': return { bg: '#dcfce7', text: '#15803d' };
+      case 'confirmed': return { bg: '#bbf7d0', text: '#166534' };
+      case 'completed': return { bg: '#f3f4f6', text: '#374151' };
+      case 'cancelled': return { bg: '#fee2e2', text: '#b91c1c' };
+      case 'lost': return { bg: '#fecaca', text: '#991b1b' };
+      default: return { bg: '#f3f4f6', text: '#374151' };
+    }
+  };
+
   if (!isAdmin) return null;
 
   return (
@@ -106,10 +122,65 @@ export default function AdminLeads() {
           </div>
 
           {leads.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {leads.map(lead => (
-                <LeadAdminCard key={lead.id} lead={lead} onUpdate={fetchLeads} />
-              ))}
+            <div className="admin-card" style={{ overflowX: 'auto', padding: 0 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--line)', background: 'var(--soft-bg)' }}>
+                    <th style={{ padding: '12px 16px', fontWeight: 600, fontSize: 13, color: 'var(--muted)' }}>Ref</th>
+                    <th style={{ padding: '12px 16px', fontWeight: 600, fontSize: 13, color: 'var(--muted)' }}>Status</th>
+                    <th style={{ padding: '12px 16px', fontWeight: 600, fontSize: 13, color: 'var(--muted)' }}>Customer</th>
+                    <th style={{ padding: '12px 16px', fontWeight: 600, fontSize: 13, color: 'var(--muted)' }}>Service</th>
+                    <th style={{ padding: '12px 16px', fontWeight: 600, fontSize: 13, color: 'var(--muted)' }}>Requested Date</th>
+                    <th style={{ padding: '12px 16px', fontWeight: 600, fontSize: 13, color: 'var(--muted)', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leads.map(lead => (
+                    <tr key={lead.id} style={{ borderBottom: '1px solid var(--line)', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                      <td style={{ padding: '12px 16px', fontSize: 14 }}>
+                        <span style={{ fontFamily: 'monospace', color: '#64748b' }}>{lead.referenceCode || 'N/A'}</span>
+                      </td>
+                      <td style={{ padding: '12px 16px', fontSize: 14 }}>
+                        <span style={{ 
+                          padding: '4px 8px', 
+                          borderRadius: '12px', 
+                          fontSize: 12, 
+                          fontWeight: 600, 
+                          background: getStatusColor(lead.status).bg, 
+                          color: getStatusColor(lead.status).text,
+                          textTransform: 'capitalize'
+                        }}>
+                          {lead.status.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 16px', fontSize: 14 }}>
+                        <strong style={{ display: 'block', color: 'var(--green-darkest)' }}>{lead.name}</strong>
+                        <span style={{ color: '#64748b', fontSize: 13 }}>{lead.email}</span>
+                      </td>
+                      <td style={{ padding: '12px 16px', fontSize: 14, color: '#334155' }}>
+                        <div style={{ fontWeight: 500 }}>{lead.serviceNameSnapshot || lead.serviceId || 'Need consultation'}</div>
+                        {lead.packageNameSnapshot && (
+                          <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
+                            Pkg: {lead.packageNameSnapshot}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '12px 16px', fontSize: 14, color: '#334155' }}>
+                        {lead.date || 'Flexible'}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                        <button 
+                          className="admin-btn admin-btn-secondary" 
+                          style={{ padding: '6px 12px', fontSize: 13 }}
+                          onClick={() => setSelectedLead(lead)}
+                        >
+                          View / Edit
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
             <div className="admin-card" style={{ padding: '80px 40px', textAlign: 'center' }}>
@@ -119,6 +190,17 @@ export default function AdminLeads() {
           )}
         </div>
       </div>
+      
+      {selectedLead && (
+        <LeadAdminCard 
+          lead={selectedLead} 
+          onUpdate={() => {
+            fetchLeads();
+            setSelectedLead(null);
+          }}
+          onClose={() => setSelectedLead(null)}
+        />
+      )}
     </PageTransition>
   );
 }

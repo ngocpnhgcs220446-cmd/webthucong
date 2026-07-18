@@ -22,7 +22,7 @@ export default function AdminNavbar() {
     { path: '/admin/about', label: 'About Page', icon: <Briefcase size={18} /> },
     { path: '/admin/content', label: 'Content', icon: <Box size={18} /> },
     { path: '/admin/contact-info', label: 'Contact Information', icon: <Mail size={18} /> },
-    { path: '/admin/inquiries', label: 'Customer Inquiries', icon: <MessageSquare size={18} /> },
+    { path: '/admin/leads', label: 'Customer Leads', icon: <MessageSquare size={18} /> },
     { path: '/admin/settings', label: 'Settings', icon: <Settings size={18} /> },
   ];
 

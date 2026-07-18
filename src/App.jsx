@@ -91,7 +91,7 @@ export default function App() {
             <Route path="/admin/about" element={<ProtectedRoute><About /></ProtectedRoute>} />
             <Route path="/admin/services" element={<ProtectedRoute><Suspense fallback={<div>Loading...</div>}><AdminProducts /></Suspense></ProtectedRoute>} />
             <Route path="/admin/contact-info" element={<ProtectedRoute><Suspense fallback={<div>Loading...</div>}><AdminContact /></Suspense></ProtectedRoute>} />
-            <Route path="/admin/inquiries" element={<ProtectedRoute><Suspense fallback={<div>Loading...</div>}><AdminLeads /></Suspense></ProtectedRoute>} />
+            <Route path="/admin/leads" element={<ProtectedRoute><Suspense fallback={<div>Loading...</div>}><AdminLeads /></Suspense></ProtectedRoute>} />
             <Route path="/admin/content" element={<ProtectedRoute><Suspense fallback={<div>Loading...</div>}><AdminContent /></Suspense></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute><Suspense fallback={<div>Loading...</div>}><AdminSettings /></Suspense></ProtectedRoute>} />
           </Routes>

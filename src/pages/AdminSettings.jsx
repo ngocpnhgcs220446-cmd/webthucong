@@ -58,6 +58,7 @@ export default function AdminSettings() {
   }, []);
 
   const handleChange = (key, value) => {
+    if (key === 'hotline') value = value.replace(/\D/g, '');
     setSettings(prev => ({ ...prev, [key]: value }));
     setErrors(prev => ({ ...prev, [key]: null }));
   };
