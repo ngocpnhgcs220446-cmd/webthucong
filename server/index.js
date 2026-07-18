@@ -68,14 +68,17 @@ const allowedOrigins = String(process.env.ALLOWED_ORIGINS || process.env.PUBLIC_
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-app.use(cors({
+const corsMiddleware = cors({
   origin(origin, callback) {
     if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
       return callback(null, true);
     }
     return callback(new Error('Origin not allowed by CORS'));
   }
-}));
+});
+
+// Only apply CORS to API routes — static assets must never be blocked
+app.use('/api', corsMiddleware);
 
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
