@@ -203,13 +203,13 @@ const prisma = new PrismaClient({});
 async function main() {
   console.log(`Start seeding...`);
 
-  if (process.env.ALLOW_DESTRUCTIVE_SEED !== 'true') {
-    throw new Error(
-      'Destructive demo seed is disabled. Set ALLOW_DESTRUCTIVE_SEED=true only in development.'
-    );
+  const serviceCount = await prisma.service.count();
+  if (serviceCount > 0 && process.env.ALLOW_DESTRUCTIVE_SEED !== 'true') {
+    console.log('Database already contains data. Skipping demo seed to prevent data loss. Set ALLOW_DESTRUCTIVE_SEED=true to override.');
+    process.exit(0);
   }
   
-  // Clear existing data
+  // Clear existing data (safe now)
   await prisma.service.deleteMany();
   console.log('Cleared existing services.');
 

@@ -15,6 +15,10 @@ try {
   // Pass the updated environment variables to the child process
   execSync('npx prisma migrate deploy', { stdio: 'inherit', env: process.env });
   
+  console.log("[Setup] Running auto-seeding (safe mode)...");
+  execSync('npm run db:seed', { stdio: 'inherit', env: process.env });
+  execSync('node server/populate_rich_data.js', { stdio: 'inherit', env: process.env });
+  
   console.log("[Setup] Starting application server...");
   // Dynamically import the main server entry
   await import('./index.js');
