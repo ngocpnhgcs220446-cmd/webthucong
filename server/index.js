@@ -63,30 +63,50 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 
-const allowedOrigins = String(process.env.ALLOWED_ORIGINS || '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+// --- CORS Configuration ---
+const normalizeOrigin = (value = '') =>
+  value.trim().replace(/\/+$/, '').toLowerCase();
 
-console.log('[CORS] Allowed origins:', allowedOrigins);
+const allowedOrigins = new Set(
+  String(process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(normalizeOrigin)
+    .filter(Boolean)
+);
+
+const publicSiteOrigin = normalizeOrigin(process.env.PUBLIC_SITE_URL || '');
+if (publicSiteOrigin) {
+  allowedOrigins.add(publicSiteOrigin);
+}
+
+console.log('[CORS] ALLOWED_ORIGINS configured:', Boolean(process.env.ALLOWED_ORIGINS));
+console.log('[CORS] PUBLIC_SITE_URL configured:', Boolean(process.env.PUBLIC_SITE_URL));
+console.log('[CORS] Allowed origins:', [...allowedOrigins]);
 
 const corsOptions = {
   origin(origin, callback) {
-    // Allow requests with no Origin (curl, server-to-server, same-origin nav)
+    // Allow requests with no Origin (curl, health checks, server-to-server)
     if (!origin) {
       return callback(null, true);
     }
-    if (allowedOrigins.includes(origin)) {
+
+    const normalized = normalizeOrigin(origin);
+
+    if (allowedOrigins.has(normalized)) {
       return callback(null, true);
     }
+
     // In development, allow all origins
     if (process.env.NODE_ENV !== 'production') {
       return callback(null, true);
     }
+
     console.warn('[CORS] Blocked origin:', origin);
     return callback(new Error('Origin not allowed by CORS'));
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
 // Only apply CORS to API routes — static assets must NEVER go through CORS
