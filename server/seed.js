@@ -239,15 +239,27 @@ const prisma = new PrismaClient({});
 async function main() {
   console.log(`Start seeding...`);
 
+  const isProduction = process.env.NODE_ENV === 'production';
+  const allowDestructive = process.env.ALLOW_DESTRUCTIVE_SEED === 'true';
+
   const serviceCount = await prisma.service.count();
-  if (serviceCount > 0 && process.env.ALLOW_DESTRUCTIVE_SEED !== 'true') {
-    console.log('Database already contains data. Skipping demo seed to prevent data loss. Set ALLOW_DESTRUCTIVE_SEED=true to override.');
-    process.exit(0);
+
+  if (serviceCount > 0 && !allowDestructive) {
+    console.log(`Database already contains ${serviceCount} services. Skipping seed.`);
+    console.log('Set ALLOW_DESTRUCTIVE_SEED=true to force re-seed.');
+    return;
   }
-  
-  // Clear existing data (safe now)
-  await prisma.service.deleteMany();
-  console.log('Cleared existing services.');
+
+  if (serviceCount > 0 && allowDestructive) {
+    console.log('[DESTRUCTIVE SEED] Clearing existing data...');
+    await prisma.serviceReview.deleteMany();
+    await prisma.servicePackage.deleteMany();
+    await prisma.service.deleteMany();
+    await prisma.setting.deleteMany();
+    await prisma.testimonial.deleteMany();
+    await prisma.teamMember.deleteMany();
+    console.log('Cleared existing data.');
+  }
 
   for (const s of services) {
     const service = await prisma.service.create({

@@ -10,27 +10,30 @@ if (!process.env.DATABASE_URL) {
     if (fs.existsSync('/app/data')) {
       dbPath = 'file:/app/data/production.db';
     } else {
-      console.warn('[WARNING] Persistent volume at /app/data not found! Using ephemeral database ./production.db. Your data will be lost on the next deploy.');
+      console.warn('[WARNING] Persistent volume at /app/data not found! Using ephemeral database ./production.db. Data will be lost on redeploy.');
       dbPath = 'file:./production.db';
     }
   } else if (process.env.NODE_ENV === 'production') {
     dbPath = 'file:./production.db';
   }
   process.env.DATABASE_URL = dbPath;
-  console.log(`[Auto-Config] Environment variable DATABASE_URL was missing. Automatically set to: ${dbPath}`);
+  console.log(`[Auto-Config] DATABASE_URL set to: ${dbPath}`);
 }
 
 try {
   console.log("[Setup] Running database migrations...");
-  // Pass the updated environment variables to the child process
   execSync('npx prisma migrate deploy', { stdio: 'inherit', env: process.env });
-  
-  console.log("[Setup] Running auto-seeding (safe mode)...");
-  execSync('npm run db:seed', { stdio: 'inherit', env: process.env });
-  execSync('node server/populate_rich_data.js', { stdio: 'inherit', env: process.env });
-  
+
+  // Only run seed if explicitly requested via AUTO_SEED=true
+  if (process.env.AUTO_SEED === 'true') {
+    console.log("[Setup] AUTO_SEED=true — running seed...");
+    execSync('npm run db:seed', { stdio: 'inherit', env: process.env });
+    execSync('node server/populate_rich_data.js', { stdio: 'inherit', env: process.env });
+  } else {
+    console.log("[Setup] Skipping auto-seed (set AUTO_SEED=true to enable).");
+  }
+
   console.log("[Setup] Starting application server...");
-  // Dynamically import the main server entry
   await import('./index.js');
 } catch (error) {
   console.error("[Setup] Fatal Error during startup:", error.message);

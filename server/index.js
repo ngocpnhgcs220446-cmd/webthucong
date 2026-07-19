@@ -63,22 +63,34 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 
-const allowedOrigins = String(process.env.ALLOWED_ORIGINS || process.env.PUBLIC_SITE_URL || '')
+const allowedOrigins = String(process.env.ALLOWED_ORIGINS || '')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-const corsMiddleware = cors({
+console.log('[CORS] Allowed origins:', allowedOrigins);
+
+const corsOptions = {
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+    // Allow requests with no Origin (curl, server-to-server, same-origin nav)
+    if (!origin) {
       return callback(null, true);
     }
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    // In development, allow all origins
+    if (process.env.NODE_ENV !== 'production') {
+      return callback(null, true);
+    }
+    console.warn('[CORS] Blocked origin:', origin);
     return callback(new Error('Origin not allowed by CORS'));
-  }
-});
+  },
+  credentials: true,
+};
 
-// Only apply CORS to API routes — static assets must never be blocked
-app.use('/api', corsMiddleware);
+// Only apply CORS to API routes — static assets must NEVER go through CORS
+app.use('/api', cors(corsOptions));
 
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
