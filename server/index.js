@@ -20,9 +20,12 @@ const prisma = new PrismaClient();
 const app = express();
 const PORT = Number(process.env.PORT || 5001);
 
+const isRailway = Boolean(process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_PUBLIC_DOMAIN);
+const isProduction = process.env.NODE_ENV === 'production' || isRailway;
+
 const jwtSecret = process.env.JWT_SECRET?.trim();
-if (process.env.NODE_ENV === 'production' && !jwtSecret) {
-  console.error('[Config] Fatal: JWT_SECRET is required in production.');
+if (isProduction && (!jwtSecret || jwtSecret.length < 32)) {
+  console.error('[Config] Fatal: JWT_SECRET must be at least 32 characters in production.');
   process.exit(1);
 }
 console.log('[JWT] Configuration:', {
@@ -65,15 +68,8 @@ function validateRequired(data, fields) {
   }
   return Object.keys(errors).length > 0 ? errors : null;
 }
-const trustProxyEnabled =
-  process.env.TRUST_PROXY === '1' ||
-  process.env.TRUST_PROXY === 'true' ||
-  process.env.NODE_ENV === 'production';
-
-app.set(
-  'trust proxy',
-  trustProxyEnabled ? 1 : false
-);
+const trustProxyEnabled = process.env.TRUST_PROXY === '1' || process.env.TRUST_PROXY === 'true' || isProduction;
+app.set('trust proxy', trustProxyEnabled ? 1 : false);
 
 console.log('[Proxy] Configuration:', {
   enabled: trustProxyEnabled,
@@ -1617,7 +1613,7 @@ console.log('Production frontend paths:', {
 // Serve uploaded pics
 app.use('/pics', express.static(PICS_DIR));
 
-if (process.env.NODE_ENV === 'production') {
+if (isProduction) {
   app.use(
     express.static(DIST_DIR, {
       index: false,
@@ -1640,15 +1636,24 @@ if (process.env.NODE_ENV === 'production') {
     }
 
     if (
+      req.path === '/api' ||
       req.path.startsWith('/api/') ||
+      req.path === '/assets' ||
       req.path.startsWith('/assets/') ||
+      req.path === '/pics' ||
       req.path.startsWith('/pics/') ||
-      req.path.includes('.')
+      req.path === '/uploads' ||
+      req.path.startsWith('/uploads/')
     ) {
       return next();
     }
 
+    if (path.extname(req.path)) {
+      return next();
+    }
+
     if (!fs.existsSync(INDEX_FILE)) {
+      console.error('[Frontend] index.html is missing:', INDEX_FILE);
       return res.status(500).json({ error: 'Frontend build is missing' });
     }
 
@@ -1660,6 +1665,11 @@ if (process.env.NODE_ENV === 'production') {
     res.status(404).json({ error: 'API endpoint not found' });
   });
 }
+
+// Global 404 handler for any remaining requests (only triggers if SPA fallback didn't catch it, or for non-GET methods)
+app.use((req, res, next) => {
+  res.status(404).json({ error: 'Route not found' });
+});
 
 // Multer Error Handler
 app.use((error, req, res, next) => {
@@ -1692,7 +1702,7 @@ app.use((error, req, res, next) => {
 
   console.error('Unhandled server error:', { method: req.method, path: req.path, message: error?.message });
 
-  if (process.env.NODE_ENV === 'production') {
+  if (isProduction) {
     res.status(error.status || 500).json({ error: 'Internal server error' });
   } else {
     res.status(error.status || 500).json({ error: error?.message, stack: error?.stack });

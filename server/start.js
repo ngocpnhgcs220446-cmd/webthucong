@@ -2,31 +2,34 @@ import { execSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 
-// Provide a smart fallback for DATABASE_URL if missing
+const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_PUBLIC_DOMAIN;
+const isProduction = process.env.NODE_ENV === 'production' || isRailway;
+
+// Provide a strict fallback for DATABASE_URL if missing
 if (!process.env.DATABASE_URL) {
-  const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_PUBLIC_DOMAIN;
-  let dbPath = 'file:./dev.db';
-  if (isRailway) {
-    if (!fs.existsSync('/app/data')) {
-      try {
-        fs.mkdirSync('/app/data', { recursive: true });
-        console.log('[Setup] Created persistent directory at /app/data');
-      } catch (err) {
-        console.warn('[WARNING] Failed to create /app/data. Using ephemeral database.');
+  if (isProduction) {
+    console.warn('[WARNING] DATABASE_URL is missing in production!');
+    if (isRailway) {
+      if (!fs.existsSync('/app/data')) {
+        try {
+          fs.mkdirSync('/app/data', { recursive: true });
+          console.log('[Setup] Created persistent directory at /app/data');
+        } catch (err) {
+          console.error('[Config] Fatal: Failed to create /app/data volume directory.', err.message);
+          process.exit(1);
+        }
       }
-    }
-    
-    if (fs.existsSync('/app/data')) {
-      dbPath = 'file:/app/data/production.db';
+      process.env.DATABASE_URL = 'file:/app/data/production.db';
     } else {
-      console.warn('[WARNING] Persistent volume at /app/data not found! Using ephemeral database ./production.db. Data will be lost on redeploy.');
-      dbPath = 'file:./production.db';
+      process.env.DATABASE_URL = 'file:./production.db';
     }
-  } else if (process.env.NODE_ENV === 'production') {
-    dbPath = 'file:./production.db';
+    console.log(`[Auto-Config] Production DATABASE_URL forced to: ${process.env.DATABASE_URL}`);
+  } else {
+    process.env.DATABASE_URL = 'file:./dev.db';
+    console.log(`[Auto-Config] Development DATABASE_URL set to: ${process.env.DATABASE_URL}`);
   }
-  process.env.DATABASE_URL = dbPath;
-  console.log(`[Auto-Config] DATABASE_URL set to: ${dbPath}`);
+} else if (isProduction && !process.env.DATABASE_URL.includes('/app/data/')) {
+  console.warn(`[WARNING] DATABASE_URL in production is NOT pointing to /app/data! It is currently: ${process.env.DATABASE_URL}. Ensure you have mounted a volume.`);
 }
 
 try {
