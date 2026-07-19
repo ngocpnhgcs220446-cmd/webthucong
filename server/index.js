@@ -20,6 +20,16 @@ const prisma = new PrismaClient();
 const app = express();
 const PORT = Number(process.env.PORT || 5001);
 
+const jwtSecret = process.env.JWT_SECRET?.trim();
+if (process.env.NODE_ENV === 'production' && !jwtSecret) {
+  console.error('[Config] Fatal: JWT_SECRET is required in production.');
+  process.exit(1);
+}
+console.log('[JWT] Configuration:', {
+  configured: Boolean(jwtSecret),
+  length: jwtSecret?.length || 0,
+});
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -55,9 +65,20 @@ function validateRequired(data, fields) {
   }
   return Object.keys(errors).length > 0 ? errors : null;
 }
-if (process.env.TRUST_PROXY === 'true') {
-  app.set('trust proxy', 1);
-}
+const trustProxyEnabled =
+  process.env.TRUST_PROXY === '1' ||
+  process.env.TRUST_PROXY === 'true' ||
+  process.env.NODE_ENV === 'production';
+
+app.set(
+  'trust proxy',
+  trustProxyEnabled ? 1 : false
+);
+
+console.log('[Proxy] Configuration:', {
+  enabled: trustProxyEnabled,
+  value: app.get('trust proxy'),
+});
 
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -286,7 +307,7 @@ const authMiddleware = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, jwtSecret);
     req.user = decoded;
     next();
   } catch (err) {
@@ -316,15 +337,6 @@ app.get('/api/health', async (req, res) => {
 });
 
 app.post('/api/login', loginRateLimiter, async (req, res) => {
-  const jwtSecret = process.env.JWT_SECRET;
-
-  if (!jwtSecret) {
-    console.error('JWT_SECRET is not configured');
-    return res.status(500).json({
-      error: 'Server configuration error',
-    });
-  }
-
   const username = String(req.body.username || '').trim();
   const password = String(req.body.password || '');
 
