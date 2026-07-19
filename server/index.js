@@ -552,7 +552,10 @@ app.get('/api/admin/services', authMiddleware, async (req, res) => {
 // Get single service by slug (Public)
 app.get('/api/services/slug/:slug', async (req, res) => {
   try {
-    const { slug } = req.params;
+    const slug = String(req.params.slug || '').trim();
+    if (!slug || slug.length < 2 || slug === 'undefined' || slug === 'null') {
+      return res.status(400).json({ error: 'A valid slug is required.' });
+    }
     const service = await prisma.service.findUnique({
       where: { slug },
       include: { packages: { where: { active: true }, orderBy: { sortOrder: 'asc' } }, reviews: { where: { active: true }, orderBy: { sortOrder: 'asc' } } }
@@ -721,8 +724,8 @@ app.put('/api/services/:id', authMiddleware, async (req, res) => {
       bodyKeys: Object.keys(data || {}),
     });
 
-    if (!id) {
-      return res.status(400).json({ error: 'Service ID is required.' });
+    if (!id || id === 'undefined' || id === 'null') {
+      return res.status(400).json({ error: 'A valid service ID is required.' });
     }
 
     const existingService = await prisma.service.findUnique({

@@ -142,6 +142,8 @@ export default function AdminProducts() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [formMode, setFormMode] = useState('create');
+  const [editingServiceId, setEditingServiceId] = useState(null);
   const [editingProduct, setEditingProduct] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [search, setSearch] = useState('');
@@ -162,14 +164,32 @@ export default function AdminProducts() {
 
   const openAdd = () => {
     console.log('[Products] Add Product clicked');
+    setFormMode('create');
+    setEditingServiceId(null);
     setEditingProduct(null);
     setModalOpen(true);
+    document.body.style.overflow = 'hidden';
   };
 
   const openEdit = (product) => {
     console.log('[Products] Edit clicked', product);
+    if (!product?.id) {
+      toast.error('Cannot edit: Product has no valid ID.');
+      return;
+    }
+    setFormMode('edit');
+    setEditingServiceId(product.id);
     setEditingProduct(product);
     setModalOpen(true);
+    document.body.style.overflow = 'hidden';
+  };
+
+  const handleCloseForm = () => {
+    setModalOpen(false);
+    setFormMode('create');
+    setEditingServiceId(null);
+    setEditingProduct(null);
+    document.body.style.overflow = '';
   };
 
   const handleDelete = async (product) => {
@@ -218,12 +238,34 @@ export default function AdminProducts() {
     }
   };
 
-  const handleSaved = (savedProduct) => {
-    setProducts(prev => {
-      const exists = prev.find(p => p.id === savedProduct.id);
-      if (exists) return prev.map(p => p.id === savedProduct.id ? savedProduct : p);
-      return [savedProduct, ...prev];
-    });
+  const handleSaveService = async (payload) => {
+    try {
+      if (formMode === 'edit') {
+        if (!editingServiceId) {
+          toast.error('Cannot find Product ID to update.');
+          return;
+        }
+        const updated = await apiCall(`/api/services/${encodeURIComponent(editingServiceId)}`, {
+          method: 'PUT',
+          body: payload
+        });
+        setProducts(prev => prev.map(p => p.id === editingServiceId ? updated : p));
+        toast.success('Product updated successfully.');
+      } else {
+        const created = await apiCall('/api/services', {
+          method: 'POST',
+          body: payload
+        });
+        setProducts(prev => [created, ...prev]);
+        toast.success('Product created successfully.');
+      }
+      handleCloseForm();
+    } catch (err) {
+      if (err.fields) {
+        throw err; // Let FullProductEditor handle field errors
+      }
+      throw err; // Let FullProductEditor handle general errors
+    }
   };
 
   const filtered = products.filter(p =>
@@ -334,8 +376,9 @@ export default function AdminProducts() {
       {modalOpen && (
         <FullProductEditor
           service={editingProduct}
-          onClose={() => { setModalOpen(false); setEditingProduct(null); }}
-          onSave={(saved) => { handleSaved(saved); }}
+          mode={formMode}
+          onClose={handleCloseForm}
+          onSave={handleSaveService}
         />
       )}
     </div>

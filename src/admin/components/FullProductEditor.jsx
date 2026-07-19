@@ -112,7 +112,7 @@ function normalizeService(s) {
   };
 }
 
-export default function FullProductEditor({ service, onClose, onSave }) {
+export default function FullProductEditor({ service, mode, onClose, onSave }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState({});
@@ -155,11 +155,15 @@ export default function FullProductEditor({ service, onClose, onSave }) {
   };
 
   const handleTitleBlur = () => {
-    if (!formData.slug && formData.title) {
-      const generatedSlug = formData.title
+    if (mode === 'create' && !formData.slug && formData.title) {
+      const generatedSlug = String(formData.title)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
+        .trim()
         .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)+/g, '');
+        .replace(/^-+|-+$/g, '')
+        .replace(/-{2,}/g, '-');
       setFormData(prev => ({ ...prev, slug: generatedSlug }));
       setErrors(prev => ({ ...prev, slug: null }));
     }
@@ -226,6 +230,11 @@ export default function FullProductEditor({ service, onClose, onSave }) {
     setIsSaving(true);
     try {
       const payload = { ...formData };
+      if (mode === 'create') {
+        delete payload.id;
+        delete payload.createdAt;
+        delete payload.updatedAt;
+      }
       if (payload.defaultEstimatedPrice === '') payload.defaultEstimatedPrice = null;
       else payload.defaultEstimatedPrice = parseFloat(payload.defaultEstimatedPrice);
       
@@ -243,24 +252,24 @@ export default function FullProductEditor({ service, onClose, onSave }) {
   };
 
   return (
-    <div className="modal-backdrop">
-      <div className="admin-form-shell" style={{ width: 'min(1000px, calc(100vw - 32px))', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'rgba(15, 23, 42, 0.55)' }}>
+      <div className="product-modal" style={{ width: 'min(960px, 100%)', maxHeight: 'calc(100vh - 48px)', overflowY: 'hidden', borderRadius: '16px', background: '#fff', boxShadow: '0 24px 80px rgba(15, 23, 42, 0.24)', display: 'flex', flexDirection: 'column' }}>
         
         {/* Header */}
-        <div className="admin-form-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 10 }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 10, background: '#fff', borderRadius: '16px 16px 0 0' }}>
           <div>
             <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: 700 }}>
-              {service ? `Edit Product: ${formData.title}` : 'Add New Product'}
+              {mode === 'edit' ? `Edit Product: ${formData.title}` : 'Add New Product'}
             </h2>
             <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>Manage product details, packages, and rich content.</p>
           </div>
           <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-            {service && (
+            {mode === 'edit' && formData.slug && (
               <a href={`/services/${formData.slug}`} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#166534', fontSize: '13px', textDecoration: 'none', fontWeight: 600 }}>
                 <ExternalLink size={14} /> Preview Product
               </a>
             )}
-            <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={22} /></button>
+            <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }} aria-label="Close modal"><X size={22} /></button>
           </div>
         </div>
         

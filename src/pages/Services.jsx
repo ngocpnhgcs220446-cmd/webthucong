@@ -264,7 +264,8 @@ export default function Services() {
 
       {isFullEditorOpen && (
         <FullProductEditor 
-          service={editingService} 
+          service={editingService}
+          mode={editingService ? 'edit' : 'create'}
           onClose={() => setIsFullEditorOpen(false)} 
           onSave={handleSaveService} 
         />
