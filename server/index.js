@@ -594,7 +594,11 @@ app.post('/api/services', authMiddleware, async (req, res) => {
     
     if (!data.title?.trim()) errors.title = 'Title is required';
     if (!data.category?.trim()) errors.category = 'Category is required';
-    if (!data.price) errors.price = 'Price is required';
+    if (!data.price || !String(data.price).trim()) {
+      errors.price = 'Price is required';
+    } else {
+      data.price = String(data.price);
+    }
     
     data.slug = valid.createSlug(data.slug || data.title);
     if (!data.slug) errors.slug = 'Slug is required';
@@ -698,6 +702,9 @@ app.post('/api/services', authMiddleware, async (req, res) => {
 
     res.status(201).json(newService);
   } catch (error) {
+    if (error?.code === 'P2025') {
+      return res.status(404).json({ error: 'Service not found.' });
+    }
     console.error(error);
     res.status(500).json({ error: 'Failed to create service' });
   }
@@ -706,13 +713,37 @@ app.post('/api/services', authMiddleware, async (req, res) => {
 // Update a service
 app.put('/api/services/:id', authMiddleware, async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id || '').trim();
     const data = req.body;
     
+    console.log('[Service Update] Request:', {
+      id,
+      bodyKeys: Object.keys(data || {}),
+    });
+
+    if (!id) {
+      return res.status(400).json({ error: 'Service ID is required.' });
+    }
+
+    const existingService = await prisma.service.findUnique({
+      where: { id },
+    });
+
+    if (!existingService) {
+      return res.status(404).json({ error: 'Service not found.' });
+    }
+    
     const errors = {};
-    if (data.title !== undefined && !data.title?.trim()) errors.title = 'Title is required';
-    if (data.category !== undefined && !data.category?.trim()) errors.category = 'Category is required';
-    if (data.price !== undefined && !data.price) errors.price = 'Price is required';
+    if (data.title !== undefined && !String(data.title).trim()) errors.title = 'Title is required';
+    if (data.category !== undefined && !String(data.category).trim()) errors.category = 'Category is required';
+    
+    if (data.price !== undefined) {
+      if (!String(data.price).trim()) {
+        errors.price = 'Price is required';
+      } else {
+        data.price = String(data.price);
+      }
+    }
     
     if (data.slug !== undefined) {
       data.slug = valid.createSlug(data.slug);
@@ -859,6 +890,9 @@ app.put('/api/services/:id', authMiddleware, async (req, res) => {
     };
     res.json(response);
   } catch (error) {
+    if (error?.code === 'P2025') {
+      return res.status(404).json({ error: 'Service not found.' });
+    }
     console.error(error);
     res.status(500).json({ error: 'Failed to update service' });
   }
@@ -867,10 +901,30 @@ app.put('/api/services/:id', authMiddleware, async (req, res) => {
 // Delete a service
 app.delete('/api/services/:id', authMiddleware, async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id || '').trim();
+    
+    console.log('[Service Delete] Request:', {
+      id,
+    });
+
+    if (!id) {
+      return res.status(400).json({ error: 'Service ID is required.' });
+    }
+
+    const existingService = await prisma.service.findUnique({
+      where: { id },
+    });
+
+    if (!existingService) {
+      return res.status(404).json({ error: 'Service not found.' });
+    }
+
     await prisma.service.delete({ where: { id } });
     res.status(204).send();
   } catch (error) {
+    if (error?.code === 'P2025') {
+      return res.status(404).json({ error: 'Service not found.' });
+    }
     console.error(error);
     res.status(500).json({ error: 'Failed to delete service' });
   }
