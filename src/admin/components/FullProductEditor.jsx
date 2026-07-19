@@ -252,11 +252,11 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'rgba(15, 23, 42, 0.55)' }}>
-      <div className="product-modal" style={{ width: 'min(960px, 100%)', maxHeight: 'calc(100vh - 48px)', overflowY: 'hidden', borderRadius: '16px', background: '#fff', boxShadow: '0 24px 80px rgba(15, 23, 42, 0.24)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', background: 'rgba(15, 23, 42, 0.55)' }}>
+      <div className="product-modal" style={{ width: '100%', maxWidth: '960px', maxHeight: 'calc(100vh - 32px)', overflow: 'hidden', borderRadius: '16px', background: '#fff', boxShadow: '0 24px 80px rgba(15, 23, 42, 0.24)', display: 'flex', flexDirection: 'column' }}>
         
         {/* Header */}
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 10, background: '#fff', borderRadius: '16px 16px 0 0' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff' }}>
           <div>
             <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: 700 }}>
               {mode === 'edit' ? `Edit Product: ${formData.title}` : 'Add New Product'}
