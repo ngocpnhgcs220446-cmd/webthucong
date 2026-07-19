@@ -4,6 +4,17 @@ import 'dotenv/config';
 
 const prisma = new PrismaClient();
 
+const isRailway = Boolean(process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_PUBLIC_DOMAIN);
+const isProduction = process.env.NODE_ENV === 'production' || isRailway;
+
+if (isProduction) {
+  const dbUrl = process.env.DATABASE_URL || '';
+  if (!dbUrl || dbUrl.includes('dev.db')) {
+    console.error('[Config] Fatal: DATABASE_URL is missing or using dev.db in production. It must be file:/app/data/production.db.');
+    process.exit(1);
+  }
+}
+
 async function main() {
   console.log('--- Admin User Setup ---');
   

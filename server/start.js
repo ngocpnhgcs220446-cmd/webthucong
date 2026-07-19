@@ -28,8 +28,9 @@ if (!process.env.DATABASE_URL) {
     process.env.DATABASE_URL = 'file:./dev.db';
     console.log(`[Auto-Config] Development DATABASE_URL set to: ${process.env.DATABASE_URL}`);
   }
-} else if (isProduction && !process.env.DATABASE_URL.includes('/app/data/')) {
-  console.warn(`[WARNING] DATABASE_URL in production is NOT pointing to /app/data! It is currently: ${process.env.DATABASE_URL}. Ensure you have mounted a volume.`);
+} else if (isProduction && (!process.env.DATABASE_URL.includes('/app/data/') || process.env.DATABASE_URL.includes('dev.db'))) {
+  console.error(`[Config] Fatal: DATABASE_URL in production must point to /app/data/production.db. It is currently: ${process.env.DATABASE_URL}`);
+  process.exit(1);
 }
 
 try {
