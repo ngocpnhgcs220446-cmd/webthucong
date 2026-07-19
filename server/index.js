@@ -333,10 +333,17 @@ app.get('/api/health', async (req, res) => {
 });
 
 app.post('/api/login', loginRateLimiter, async (req, res) => {
-  const username = String(req.body.username || '').trim();
-  const password = String(req.body.password || '');
+  const rawUsername = req.body.username;
+  const username = typeof rawUsername === 'string' ? rawUsername.trim() : '';
+  const password = typeof req.body.password === 'string' ? req.body.password : '';
+
+  console.log('[Auth] Login request received:', {
+    hasUsername: typeof rawUsername === 'string',
+    hasPassword: typeof req.body.password === 'string',
+  });
 
   if (!username || !password) {
+    console.warn('[Auth] Login rejected:', { username: username || null, reason: 'invalid-payload' });
     return res.status(400).json({
       error: 'Username and password are required',
     });
@@ -348,8 +355,9 @@ app.post('/api/login', loginRateLimiter, async (req, res) => {
 
   if (dbUser) {
     if (!dbUser.active) {
-      return res.status(403).json({
-        error: 'Account disabled',
+      console.warn('[Auth] Login rejected:', { username, reason: 'admin-inactive' });
+      return res.status(401).json({ // Changed to 401 per standard auth practices for invalid credentials
+        error: 'Invalid username or password.',
       });
     }
 
@@ -359,8 +367,9 @@ app.post('/api/login', loginRateLimiter, async (req, res) => {
     );
 
     if (!passwordValid) {
+      console.warn('[Auth] Login rejected:', { username, reason: 'password-mismatch' });
       return res.status(401).json({
-        error: 'Invalid credentials',
+        error: 'Invalid username or password.',
       });
     }
 
@@ -394,8 +403,9 @@ app.post('/api/login', loginRateLimiter, async (req, res) => {
     }
   }
 
+  console.warn('[Auth] Login rejected:', { username, reason: 'admin-not-found' });
   return res.status(401).json({
-    error: 'Invalid credentials',
+    error: 'Invalid username or password.',
   });
 });
 

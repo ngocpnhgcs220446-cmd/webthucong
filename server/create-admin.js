@@ -17,19 +17,20 @@ if (isProduction) {
 
 async function main() {
   console.log('--- Admin User Setup ---');
-  
-  const username = process.env.INITIAL_ADMIN_USERNAME;
-  const password = process.env.INITIAL_ADMIN_PASSWORD;
-  const name = process.env.INITIAL_ADMIN_NAME || 'Administrator';
+  console.log('[Admin Setup] Database:', {
+    databaseUrl: process.env.DATABASE_URL,
+  });
 
-  if (!username || !password) {
-    console.error('Error: INITIAL_ADMIN_USERNAME and INITIAL_ADMIN_PASSWORD environment variables are required.');
-    process.exit(1);
+  const username = process.env.INITIAL_ADMIN_USERNAME?.trim();
+  const password = process.env.INITIAL_ADMIN_PASSWORD;
+  const name = process.env.INITIAL_ADMIN_NAME?.trim() || 'Administrator';
+
+  if (!username) {
+    throw new Error('INITIAL_ADMIN_USERNAME is required.');
   }
 
-  if (password.length < 10) {
-    console.error('Error: Password must be at least 10 characters long.');
-    process.exit(1);
+  if (!password || password.length < 8) {
+    throw new Error('INITIAL_ADMIN_PASSWORD must be at least 8 characters.');
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
@@ -48,10 +49,21 @@ async function main() {
       name,
       active: true,
       role: 'admin'
+    },
+    select: {
+      id: true,
+      username: true,
+      name: true,
+      active: true,
     }
   });
 
-  console.log(`Success: Admin user '${admin.username}' has been created/updated.`);
+  console.log('[Admin Setup] Success:', {
+    id: admin.id,
+    username: admin.username,
+    active: admin.active,
+    database: process.env.DATABASE_URL,
+  });
   console.log('You can now log in using this username.');
 }
 
