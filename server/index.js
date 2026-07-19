@@ -1634,11 +1634,16 @@ if (process.env.NODE_ENV === 'production') {
     return res.status(404).type('text/plain').send('Frontend asset not found');
   });
 
-  app.get(/(.*)/, (req, res, next) => {
+  app.use((req, res, next) => {
+    if (req.method !== 'GET') {
+      return next();
+    }
+
     if (
       req.path.startsWith('/api/') ||
       req.path.startsWith('/assets/') ||
-      req.path.startsWith('/pics/')
+      req.path.startsWith('/pics/') ||
+      req.path.includes('.')
     ) {
       return next();
     }

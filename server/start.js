@@ -7,6 +7,15 @@ if (!process.env.DATABASE_URL) {
   const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_PUBLIC_DOMAIN;
   let dbPath = 'file:./dev.db';
   if (isRailway) {
+    if (!fs.existsSync('/app/data')) {
+      try {
+        fs.mkdirSync('/app/data', { recursive: true });
+        console.log('[Setup] Created persistent directory at /app/data');
+      } catch (err) {
+        console.warn('[WARNING] Failed to create /app/data. Using ephemeral database.');
+      }
+    }
+    
     if (fs.existsSync('/app/data')) {
       dbPath = 'file:/app/data/production.db';
     } else {
@@ -25,7 +34,9 @@ try {
   execSync('npx prisma migrate deploy', { stdio: 'inherit', env: process.env });
 
   // Only run seed if explicitly requested via AUTO_SEED=true
-  if (process.env.AUTO_SEED === 'true') {
+  const autoSeedEnabled = process.env.AUTO_SEED === 'true';
+  
+  if (autoSeedEnabled) {
     console.log("[Setup] AUTO_SEED=true — running seed...");
     execSync('npm run db:seed', { stdio: 'inherit', env: process.env });
     execSync('node server/populate_rich_data.js', { stdio: 'inherit', env: process.env });

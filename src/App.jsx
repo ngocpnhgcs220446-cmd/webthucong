@@ -81,6 +81,7 @@ export default function App() {
               <Route path="/services/:slug" element={<ServiceDetail />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/admin/login" element={<Navigate to="/login" replace />} />
               <Route path="*" element={<NotFound />} />
             </Route>
 
