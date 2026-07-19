@@ -65,7 +65,10 @@ app.use(helmet({
 
 // --- CORS Configuration ---
 const normalizeOrigin = (value = '') =>
-  value.trim().replace(/\/+$/, '').toLowerCase();
+  String(value)
+    .trim()
+    .replace(/\/+$/, '')
+    .toLowerCase();
 
 const allowedOrigins = new Set(
   String(process.env.ALLOWED_ORIGINS || '')
@@ -74,43 +77,92 @@ const allowedOrigins = new Set(
     .filter(Boolean)
 );
 
-const publicSiteOrigin = normalizeOrigin(process.env.PUBLIC_SITE_URL || '');
+const publicSiteOrigin = normalizeOrigin(
+  process.env.PUBLIC_SITE_URL || ''
+);
+
 if (publicSiteOrigin) {
   allowedOrigins.add(publicSiteOrigin);
 }
 
-console.log('[CORS] ALLOWED_ORIGINS configured:', Boolean(process.env.ALLOWED_ORIGINS));
-console.log('[CORS] PUBLIC_SITE_URL configured:', Boolean(process.env.PUBLIC_SITE_URL));
-console.log('[CORS] Allowed origins:', [...allowedOrigins]);
+const railwayPublicOrigin = normalizeOrigin(
+  process.env.RAILWAY_PUBLIC_DOMAIN
+    ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+    : ''
+);
 
-const corsOptions = {
-  origin(origin, callback) {
-    // Allow requests with no Origin (curl, health checks, server-to-server)
-    if (!origin) {
-      return callback(null, true);
-    }
+if (railwayPublicOrigin) {
+  allowedOrigins.add(railwayPublicOrigin);
+}
 
-    const normalized = normalizeOrigin(origin);
+console.log('[CORS] Configuration:', {
+  allowedOriginsConfigured: Boolean(process.env.ALLOWED_ORIGINS),
+  publicSiteUrlConfigured: Boolean(process.env.PUBLIC_SITE_URL),
+  railwayPublicDomainConfigured: Boolean(process.env.RAILWAY_PUBLIC_DOMAIN),
+  allowedOrigins: [...allowedOrigins],
+});
 
-    if (allowedOrigins.has(normalized)) {
-      return callback(null, true);
-    }
+function isSameRuntimeOrigin(req, origin) {
+  if (!origin) {
+    return true;
+  }
 
-    // In development, allow all origins
-    if (process.env.NODE_ENV !== 'production') {
-      return callback(null, true);
-    }
+  const protocol =
+    String(
+      req.headers['x-forwarded-proto'] ||
+      req.protocol ||
+      'https'
+    )
+      .split(',')[0]
+      .trim();
 
-    console.warn('[CORS] Blocked origin:', origin);
-    return callback(new Error('Origin not allowed by CORS'));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-};
+  const host = String(
+    req.headers['x-forwarded-host'] ||
+    req.headers.host ||
+    ''
+  )
+    .split(',')[0]
+    .trim();
+
+  if (!host) {
+    return false;
+  }
+
+  const runtimeOrigin = normalizeOrigin(`${protocol}://${host}`);
+  return normalizeOrigin(origin) === runtimeOrigin;
+}
+
+const corsMiddleware = cors((req, callback) => {
+  const origin = req.headers.origin;
+  const normalizedOrigin = normalizeOrigin(origin);
+
+  const originAllowed =
+    !origin ||
+    allowedOrigins.has(normalizedOrigin) ||
+    isSameRuntimeOrigin(req, origin) ||
+    process.env.NODE_ENV !== 'production';
+
+  if (!originAllowed) {
+    console.warn('[CORS] Blocked origin:', {
+      received: origin,
+      normalized: normalizedOrigin,
+      runtimeHost: req.headers['x-forwarded-host'] || req.headers.host || null,
+      runtimeProto: req.headers['x-forwarded-proto'] || req.protocol || null,
+      allowedOrigins: [...allowedOrigins],
+    });
+  }
+
+  callback(null, {
+    origin: originAllowed,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    optionsSuccessStatus: 204,
+  });
+});
 
 // Only apply CORS to API routes — static assets must NEVER go through CORS
-app.use('/api', cors(corsOptions));
+app.use('/api', corsMiddleware);
 
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
@@ -1613,16 +1665,20 @@ app.use((error, req, res, next) => {
 
 // Global Error Handler
 app.use((error, req, res, next) => {
-  console.error('Unhandled server error:', { method: req.method, path: req.path, message: error.message });
-  
   if (res.headersSent) {
     return next(error);
   }
 
+  if (error?.message === 'Origin not allowed by CORS') {
+    return res.status(403).json({ error: 'Origin not allowed by CORS' });
+  }
+
+  console.error('Unhandled server error:', { method: req.method, path: req.path, message: error?.message });
+
   if (process.env.NODE_ENV === 'production') {
     res.status(error.status || 500).json({ error: 'Internal server error' });
   } else {
-    res.status(error.status || 500).json({ error: error.message, stack: error.stack });
+    res.status(error.status || 500).json({ error: error?.message, stack: error?.stack });
   }
 });
 
