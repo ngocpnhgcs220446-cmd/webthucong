@@ -151,6 +151,7 @@ export default function SmartProductForm({ onClose, onSuccess, onOpenEditor }) {
   };
 
   const handleSave = async (openEditor = false) => {
+    if (isSaving) return;
     if (!validate()) {
       toast.error('Please fix validation errors');
       return;

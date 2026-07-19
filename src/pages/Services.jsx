@@ -22,8 +22,10 @@ export default function Services() {
   
   const { isAdmin, logout } = useAuth();
   const isAdminMode = useAdminMode();
-  const [isSmartAddOpen, setIsSmartAddOpen] = useState(false);
   const [isFullEditorOpen, setIsFullEditorOpen] = useState(false);
+  const [isSmartAddOpen, setIsSmartAddOpen] = useState(false);
+  const [formMode, setFormMode] = useState('create');
+  const [editingServiceId, setEditingServiceId] = useState(null);
   const [editingService, setEditingService] = useState(null);
 
   const fetchServices = async () => {
@@ -69,32 +71,43 @@ export default function Services() {
   const handleSaveService = async (formData) => {
     const toastId = toast.loading('Saving...');
     try {
-      const isEdit = !!formData.id;
-      const url = isEdit ? `/api/services/${formData.id}` : '/api/services';
-      const method = isEdit ? 'PUT' : 'POST';
-
-      const res = await apiFetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        const err = new Error(errData.error || 'Operation failed');
-        err.fields = errData.fields || {};
-        err.status = res.status;
-        toast.error(errData.error || 'Operation failed', { id: toastId });
-        throw err;
+      if (formMode === 'edit') {
+        if (!editingServiceId) {
+          toast.error('Cannot update product without a valid ID.', { id: toastId });
+          return;
+        }
+        const res = await apiFetch(`/api/services/${encodeURIComponent(editingServiceId)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+        if (!res.ok) throw res;
+        toast.success('Product updated successfully', { id: toastId });
+      } else {
+        const res = await apiFetch('/api/services', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+        if (!res.ok) throw res;
+        toast.success('Product created successfully', { id: toastId });
       }
 
-      toast.success(isEdit ? 'Product updated successfully' : 'Product created successfully', { id: toastId });
       setIsFullEditorOpen(false);
       setIsSmartAddOpen(false);
+      setFormMode('create');
+      setEditingServiceId(null);
       setEditingService(null);
       fetchServices();
     } catch (err) {
-      // already handled above or thrown from form
+      if (err.json) {
+        const errData = await err.json().catch(() => ({}));
+        toast.error(errData.error || 'Operation failed', { id: toastId });
+        const thrown = new Error(errData.error || 'Operation failed');
+        thrown.fields = errData.fields || {};
+        throw thrown;
+      }
+      toast.error(err.message || 'Network error', { id: toastId });
       throw err;
     }
   };
@@ -117,11 +130,19 @@ export default function Services() {
   };
 
   const openNewService = () => {
+    setFormMode('create');
+    setEditingServiceId(null);
     setEditingService(null);
     setIsSmartAddOpen(true);
   };
 
   const openEditService = (service) => {
+    if (!service || typeof service.id !== 'string' || !service.id.trim()) {
+      toast.error('Cannot edit because Product has no valid ID.');
+      return;
+    }
+    setFormMode('edit');
+    setEditingServiceId(service.id);
     setEditingService(service);
     setIsFullEditorOpen(true);
   };
@@ -249,13 +270,23 @@ export default function Services() {
 
       {isSmartAddOpen && (
         <SmartProductForm 
-          onClose={() => setIsSmartAddOpen(false)}
+          onClose={() => {
+            setIsSmartAddOpen(false);
+            setFormMode('create');
+            setEditingServiceId(null);
+            setEditingService(null);
+          }}
           onSuccess={(res) => {
             setIsSmartAddOpen(false);
+            setFormMode('create');
+            setEditingServiceId(null);
+            setEditingService(null);
             fetchServices();
           }}
           onOpenEditor={(res) => {
             setIsSmartAddOpen(false);
+            setFormMode('create');
+            setEditingServiceId(null);
             setEditingService(res);
             setIsFullEditorOpen(true);
           }}
@@ -265,8 +296,13 @@ export default function Services() {
       {isFullEditorOpen && (
         <FullProductEditor 
           service={editingService}
-          mode={editingService ? 'edit' : 'create'}
-          onClose={() => setIsFullEditorOpen(false)} 
+          mode={formMode}
+          onClose={() => {
+            setIsFullEditorOpen(false);
+            setFormMode('create');
+            setEditingServiceId(null);
+            setEditingService(null);
+          }} 
           onSave={handleSaveService} 
         />
       )}

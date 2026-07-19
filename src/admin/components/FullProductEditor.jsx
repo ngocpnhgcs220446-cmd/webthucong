@@ -216,6 +216,8 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSaving) return;
+    
     const newErrors = {};
     if (!formData.title) newErrors.title = 'Title is required';
     if (!formData.slug) newErrors.slug = 'Slug is required';
