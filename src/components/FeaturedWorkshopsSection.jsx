@@ -23,7 +23,7 @@ const getBookingTags = (product) => {
 };
 
 const getImage = (product) => {
-  if (product.image) return product.image;
+  if (product.imageUrl) return product.imageUrl;
   if (Array.isArray(product.gallery) && product.gallery.length > 0) return product.gallery[0];
   return null;
 };

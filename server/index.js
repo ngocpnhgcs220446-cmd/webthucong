@@ -247,33 +247,32 @@ if (cloudinaryCredentialsConfigured) {
   cloudinaryEnabled = true;
 }
 
-let upload;
-if (cloudinaryEnabled) {
-  upload = multer({ storage: multer.memoryStorage(), limits: uploadLimits, fileFilter: uploadFilter });
-} else {
-  const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-      cb(null, PICS_DIR);
-    },
-    filename: function (req, file, cb) {
-      const uniqueSuffix = Date.now() + '-' + crypto.randomBytes(4).toString('hex');
-      const safeExt = path.extname(file.originalname).toLowerCase();
-      cb(null, 'upload-' + uniqueSuffix + safeExt);
-    }
-  });
-  upload = multer({ storage, limits: uploadLimits, fileFilter: uploadFilter });
-}
+const allowedMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const uploadFilter = (req, file, cb) => {
+  if (!allowedMimeTypes.has(file.mimetype)) {
+    const error = new Error('Only JPG, PNG and WEBP images are allowed.');
+    error.code = 'INVALID_IMAGE_TYPE';
+    return cb(error);
+  }
+  cb(null, true);
+};
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter: uploadFilter,
+});
 
 function uploadBufferToCloudinary(buffer, options = {}) {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
         resource_type: 'image',
-        folder: options.folder || 'experience-platform/products',
+        folder: options.folder || 'experience-platform/services',
         unique_filename: true,
         overwrite: false,
         transformation: [
-          { width: 2000, height: 2000, crop: 'limit', quality: 'auto', fetch_format: 'auto' },
+          { width: 1600, height: 1200, crop: 'limit', quality: 'auto', fetch_format: 'auto' },
         ],
       },
       (error, result) => {
@@ -423,71 +422,40 @@ app.post(
   '/api/upload',
   authMiddleware,
   upload.single('image'),
-  async (req, res) => {
+  async (req, res, next) => {
     try {
+      if (!cloudinaryEnabled) {
+        return res.status(503).json({
+          error: 'Image upload service is not configured.',
+        });
+      }
+
       if (!req.file) {
         return res.status(400).json({
-          success: false,
-          error: 'Please select an image',
+          error: 'Please select an image.',
         });
       }
 
-      if (cloudinaryEnabled) {
-        const result = await uploadBufferToCloudinary(
-          req.file.buffer,
-          {
-            folder: 'experience-platform/products',
-          }
-        );
+      const result = await uploadBufferToCloudinary(req.file.buffer, {
+        folder: 'experience-platform/services',
+      });
 
-        return res.status(201).json({
-          success: true,
-          imageUrl: result.secure_url,
-          image: {
-            url: result.secure_url,
-            publicId: result.public_id,
-            width: result.width,
-            height: result.height,
-            format: result.format,
-            bytes: result.bytes,
-          },
-        });
+      if (!result?.secure_url || !result?.public_id) {
+        throw new Error('Cloudinary returned an invalid response.');
       }
-
-      if (process.env.NODE_ENV === 'production') {
-        return res.status(503).json({
-          success: false,
-          error: 'Image storage is not configured',
-        });
-      }
-
-      if (!req.file.filename) {
-        throw new Error(
-          'Local upload did not produce a filename'
-        );
-      }
-
-      const localUrl = `/pics/${req.file.filename}`;
 
       return res.status(201).json({
         success: true,
-        imageUrl: localUrl,
         image: {
-          url: localUrl,
-          publicId: null,
-          filename: req.file.filename,
+          imageUrl: result.secure_url,
+          publicId: result.public_id,
+          width: result.width || null,
+          height: result.height || null,
+          format: result.format || null,
         },
       });
     } catch (error) {
-      console.error(
-        'Image upload failed:',
-        error.message
-      );
-
-      return res.status(500).json({
-        success: false,
-        error: 'Unable to upload image',
-      });
+      return next(error);
     }
   }
 );
@@ -643,7 +611,8 @@ app.post('/api/services', authMiddleware, async (req, res) => {
         duration: data.duration || '',
         groupSize: data.groupSize || '',
         location: data.location || '',
-        image: data.image || '',
+        imageUrl: data.imageUrl || null,
+        imagePublicId: data.imagePublicId || null,
         gallery: ensureJsonString(data.gallery),
         highlights: ensureJsonString(data.highlights),
         description: data.description || '',
@@ -790,7 +759,8 @@ app.put('/api/services/:id', authMiddleware, async (req, res) => {
         duration: data.duration,
         groupSize: data.groupSize,
         location: data.location,
-        image: data.image,
+        imageUrl: data.imageUrl,
+        imagePublicId: data.imagePublicId,
         gallery: ensureJsonString(data.gallery || []),
         highlights: ensureJsonString(data.highlights || []),
         description: data.description,
@@ -1466,7 +1436,7 @@ app.put('/api/settings', authMiddleware, async (req, res) => {
       }
     });
 
-    if (Object.keys(errors).length > 0) return res.status(400).json({ error: 'Validation failed', fields: errors });
+    if (Object.keys(keys).length > 0) return res.status(400).json({ error: 'Validation failed', fields: errors });
     for (const [key, value] of Object.entries(updates)) {
       await prisma.setting.upsert({
         where: { key },
@@ -1745,21 +1715,24 @@ app.use((req, res, next) => {
 
 // Multer Error Handler
 app.use((error, req, res, next) => {
+  if (error?.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({
+      error: 'Image must not exceed 5 MB.',
+    });
+  }
+
+  if (error?.code === 'INVALID_IMAGE_TYPE') {
+    return res.status(400).json({
+      error: 'Only JPG, PNG and WEBP images are allowed.',
+    });
+  }
+
   if (error instanceof multer.MulterError) {
-    if (error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ success: false, error: 'Image must be smaller than 5 MB' });
-    }
-    if (error.code === 'LIMIT_UNEXPECTED_FILE') {
-      return res.status(400).json({ success: false, error: 'Invalid image upload field' });
-    }
-    return res.status(400).json({ success: false, error: 'Invalid image upload request' });
+    return res.status(400).json({
+      error: 'The uploaded file is invalid.',
+    });
   }
-
-  if (error?.message === 'Invalid file type. Only JPG, PNG and WEBP are allowed.') {
-    return res.status(400).json({ success: false, error: error.message });
-  }
-
-  return next(error);
+  next(error);
 });
 
 // Global Error Handler

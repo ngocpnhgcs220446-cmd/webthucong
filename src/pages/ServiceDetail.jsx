@@ -34,7 +34,7 @@ export default function ServiceDetail() {
     setModalOpen(true);
   };
 
-  const allImages = service ? [service.image, ...(service.gallery || [])].filter(Boolean) : [];
+  const allImages = service ? [service.imageUrl, ...(service.gallery || [])].filter(Boolean) : [];
 
   if (loading) {
     return (
@@ -60,7 +60,7 @@ export default function ServiceDetail() {
 
   return (
     <>
-      <SEO title={`${service.title} | ${settings.siteTitle || 'Experience Studio'}`} description={service.shortDescription || service.subtitle} image={service.image} />
+      <SEO title={`${service.title} | ${settings.siteTitle || 'Experience Studio'}`} description={service.shortDescription || service.subtitle} image={service.imageUrl} />
       
       {/* Dynamic Styles for Hover Effects */}
       <style>{`
@@ -168,7 +168,7 @@ export default function ServiceDetail() {
             }}>
               {/* Main Image */}
               <div className="bento-box" style={{ width: '100%', height: '100%', overflow: 'hidden' }} onClick={() => setActiveImageIndex(0)}>
-                <img src={service.image} alt={service.title} className="bento-img" />
+                <img src={service.imageUrl || '/pics/product-placeholder.jpg'} alt={service.title} className="bento-img" />
               </div>
               
               {/* Side Images */}

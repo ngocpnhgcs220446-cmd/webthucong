@@ -8,9 +8,22 @@ export default function AdminImageUploader({ currentImage, onUpload, value, onCh
   const handleChange = onChange || onUpload;
   const [isUploading, setIsUploading] = useState(false);
 
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+
   const handleUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Chỉ hỗ trợ ảnh JPG, PNG hoặc WEBP.');
+      return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Ảnh không được lớn hơn 5 MB.');
+      return;
+    }
+    
     setIsUploading(true);
     const form = new FormData();
     form.append('image', file);
@@ -19,12 +32,16 @@ export default function AdminImageUploader({ currentImage, onUpload, value, onCh
         method: 'POST',
         body: form
       });
-      if (res.ok) {
-        const data = await res.json();
-        handleChange(data.url);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        // Return object containing both URL and publicId instead of just a string URL
+        handleChange({ 
+          imageUrl: data.image.imageUrl, 
+          imagePublicId: data.image.publicId 
+        });
         toast.success('Image uploaded');
       } else {
-        toast.error('Upload failed');
+        toast.error(data.error || 'Upload failed');
       }
     } catch (err) {
       toast.error('Network error');

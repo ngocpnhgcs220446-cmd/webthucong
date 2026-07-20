@@ -21,7 +21,8 @@ model Service {
   groupSize             String?
   location              String?
   timeSlots             String? // Stored as JSON string of array of times
-  image                 String
+  imageUrl              String?
+  imagePublicId         String?
   gallery               String // Stored as JSON string
   highlights            String // Stored as JSON string
   description           String

@@ -323,7 +323,7 @@ export default function AdminProducts() {
               boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
             }}>
               {/* Image */}
-              <img src={product.image || '/pics/product1.jpg'} alt={product.title}
+              <img src={product.imageUrl || '/pics/product-placeholder.jpg'} alt={product.title}
                 style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, flexShrink: 0, border: '1px solid #e5e7eb' }} />
 
               {/* Info */}

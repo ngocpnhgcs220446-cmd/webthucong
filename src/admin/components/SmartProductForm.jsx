@@ -69,7 +69,8 @@ export default function SmartProductForm({ onClose, onSuccess, onOpenEditor }) {
     slug: '',
     category: PRODUCT_CATEGORIES[0].key,
     groupName: '',
-    image: '',
+    imageUrl: '',
+    imagePublicId: '',
     shortDescription: '',
     experienceTags: [],
     bookingTags: [],
@@ -117,7 +118,7 @@ export default function SmartProductForm({ onClose, onSuccess, onOpenEditor }) {
     const newErrors = {};
     if (!formData.title.trim()) newErrors.title = 'Product name is required';
     if (!formData.category) newErrors.category = 'Category is required';
-    if (!formData.image) newErrors.image = 'Main image is required';
+    if (!formData.imageUrl) newErrors.imageUrl = 'Main image is required';
     if (!formData.price.trim()) newErrors.price = 'Display price is required';
     
     if (formData.defaultEstimatedPrice && isNaN(parseFloat(formData.defaultEstimatedPrice))) {
@@ -232,10 +233,17 @@ export default function SmartProductForm({ onClose, onSuccess, onOpenEditor }) {
 
               <label>Main image <span style={{color: 'red'}}>*</span>
                 <AdminImageUploader 
-                  value={formData.image} 
-                  onChange={(url) => { setFormData(prev => ({ ...prev, image: url })); setErrors(prev => ({...prev, image: null})); }} 
+                  value={formData.imageUrl} 
+                  onChange={(imageData) => { 
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      imageUrl: imageData.imageUrl,
+                      imagePublicId: imageData.imagePublicId
+                    })); 
+                    setErrors(prev => ({...prev, imageUrl: null})); 
+                  }} 
                 />
-                {errors.image && <span style={{ color: 'red', fontSize: '12px' }}>{errors.image}</span>}
+                {errors.imageUrl && <span style={{ color: 'red', fontSize: '12px' }}>{errors.imageUrl}</span>}
               </label>
 
               <label>Short description

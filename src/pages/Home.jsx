@@ -108,12 +108,12 @@ export default function Home() {
       });
       const data = await res.json();
       
-      if (!res.ok) {
+      if (!res.ok || !data.success) {
         throw new Error(data.error || 'Upload failed');
       }
       
       toast.success('Image uploaded!', { id: toastId });
-      return data.url;
+      return data.image.imageUrl;
     } catch (e) {
       toast.error(e.message || 'Failed to upload image', { id: toastId });
       return null;

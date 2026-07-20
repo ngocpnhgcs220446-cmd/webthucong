@@ -120,7 +120,7 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
     normalizeService(service) || {
       title: '', slug: '', subtitle: '', description: '',
       price: '', duration: '', groupSize: '', location: '',
-      category: PRODUCT_CATEGORIES[0].key, image: '', featured: false,
+      category: PRODUCT_CATEGORIES[0].key, imageUrl: '', imagePublicId: '', featured: false,
       active: true, sortOrder: 0, minGuests: '', maxGuests: '', defaultEstimatedPrice: '',
       groupName: '', shortDescription: '', fullDescription: '',
       freeCancellation: true, cancellationPolicy: '', reserveNowPayLater: true, reservePolicy: '',
@@ -340,24 +340,24 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
                 <label>Media Gallery (Select 1 Cover) <span style={{ color: 'red' }}>*</span></label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 12, marginTop: '8px' }}>
                   {formData.gallery?.map((url, idx) => (
-                    <div key={idx} style={{ position: 'relative', aspectRatio: '1', borderRadius: 8, overflow: 'hidden', border: formData.image === url ? '3px solid var(--green)' : '1px solid #d1d5db' }}>
+                    <div key={idx} style={{ position: 'relative', aspectRatio: '1', borderRadius: 8, overflow: 'hidden', border: formData.imageUrl === url ? '3px solid var(--green)' : '1px solid #d1d5db' }}>
                       <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       
-                      <button type="button" onClick={() => { setFormData(prev => ({...prev, image: url})); setErrors(prev => ({...prev, image: null})); }} title="Set as Cover" style={{ position: 'absolute', top: 4, left: 4, background: formData.image === url ? 'var(--green)' : 'rgba(0,0,0,0.6)', color: 'white', border: 'none', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}>
-                        <Star size={14} fill={formData.image === url ? 'white' : 'none'} />
+                      <button type="button" onClick={() => { setFormData(prev => ({...prev, imageUrl: url, imagePublicId: prev.galleryPublicIds?.[idx] || null})); setErrors(prev => ({...prev, imageUrl: null})); }} title="Set as Cover" style={{ position: 'absolute', top: 4, left: 4, background: formData.imageUrl === url ? 'var(--green)' : 'rgba(0,0,0,0.6)', color: 'white', border: 'none', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}>
+                        <Star size={14} fill={formData.imageUrl === url ? 'white' : 'none'} />
                       </button>
                       
                       <button type="button" onClick={() => {
                         const nextG = formData.gallery.filter((_, i) => i !== idx);
                         setFormData(prev => {
-                          const newImage = prev.image === url ? (nextG.length ? nextG[0] : '') : prev.image;
-                          return { ...prev, gallery: nextG, image: newImage };
+                          const newImage = prev.imageUrl === url ? (nextG.length ? nextG[0] : '') : prev.imageUrl;
+                          return { ...prev, gallery: nextG, imageUrl: newImage };
                         });
                       }} title="Remove" style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(239,68,68,0.9)', color: 'white', border: 'none', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}>
                         <X size={14} />
                       </button>
 
-                      {formData.image === url && (
+                      {formData.imageUrl === url && (
                         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'var(--green)', color: 'white', fontSize: 10, textAlign: 'center', padding: '4px 0', fontWeight: 'bold' }}>COVER</div>
                       )}
                     </div>
@@ -372,14 +372,20 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
                       const toastId = toast.loading(`Uploading ${files.length} images...`);
                       try {
                         const newUrls = [];
+                        const newPublicIds = [];
                         for (const f of files) {
                           const res = await uploadImage(f);
-                          newUrls.push(res.url);
+                          if (res.image) {
+                            newUrls.push(res.image.imageUrl);
+                            newPublicIds.push(res.image.publicId);
+                          }
                         }
                         setFormData(prev => {
                           const updatedGallery = [...(prev.gallery || []), ...newUrls];
-                          const newImage = !prev.image && newUrls.length ? newUrls[0] : prev.image;
-                          return { ...prev, gallery: updatedGallery, image: newImage };
+                          const updatedPublicIds = [...(prev.galleryPublicIds || []), ...newPublicIds];
+                          const newImageUrl = !prev.imageUrl && newUrls.length ? newUrls[0] : prev.imageUrl;
+                          const newPublicId = !prev.imagePublicId && newPublicIds.length ? newPublicIds[0] : prev.imagePublicId;
+                          return { ...prev, gallery: updatedGallery, galleryPublicIds: updatedPublicIds, imageUrl: newImageUrl, imagePublicId: newPublicId };
                         });
                         toast.success('Upload complete', { id: toastId });
                       } catch(err) {
@@ -389,7 +395,7 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
                     }} />
                   </label>
                 </div>
-                {errors.image && <span style={{ color: 'red', fontSize: '12px', display: 'block', marginTop: 4 }}>{errors.image}</span>}
+                {errors.imageUrl && <span style={{ color: 'red', fontSize: '12px', display: 'block', marginTop: 4 }}>{errors.imageUrl}</span>}
               </div>
 
               <div className="form-field">
