@@ -1,27 +1,49 @@
-import './config.js'; // MUST be the first import
-import { execSync } from 'child_process';
+import { spawn } from 'node:child_process';
+import { validateEnvironment, prepareDatabaseDirectory } from './config.js';
 
-try {
-  console.log('[Database Runtime]', {
-    databaseUrl: process.env.DATABASE_URL || null,
+function runCommand(command, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      stdio: 'inherit',
+      env: process.env,
+      shell: false,
+    });
+
+    child.on('error', reject);
+
+    child.on('exit', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`${command} ${args.join(' ')} exited with code ${code}`));
+      }
+    });
   });
-  console.log("[Setup] Running database migrations...");
-  execSync('npx prisma migrate deploy', { stdio: 'inherit', env: process.env });
-
-  // Only run seed if explicitly requested via AUTO_SEED=true
-  const autoSeedEnabled = process.env.AUTO_SEED === 'true';
-
-  if (autoSeedEnabled) {
-    console.log("[Setup] AUTO_SEED=true — running seed...");
-    execSync('npm run db:seed', { stdio: 'inherit', env: process.env });
-    execSync('node server/populate_rich_data.js', { stdio: 'inherit', env: process.env });
-  } else {
-    console.log("[Setup] Skipping auto-seed (set AUTO_SEED=true to enable).");
-  }
-
-  console.log("[Setup] Starting application server...");
-  await import('./index.js');
-} catch (error) {
-  console.error("[Setup] Fatal Error during startup:", error.message);
-  process.exit(1);
 }
+
+async function start() {
+  try {
+    validateEnvironment();
+    prepareDatabaseDirectory();
+
+    console.log('[Setup] Running database migrations...');
+
+    await runCommand('npm', ['run', 'db:migrate']);
+
+    if (process.env.AUTO_SEED === 'true') {
+      console.log('[Setup] Running optional seed...');
+      await runCommand('npm', ['run', 'db:seed']);
+    } else {
+      console.log('[Setup] Skipping auto-seed.');
+    }
+
+    console.log('[Setup] Starting application server...');
+
+    await import('./index.js');
+  } catch (error) {
+    console.error('[Startup] Fatal error:', error?.message || error);
+    process.exit(1);
+  }
+}
+
+start();
