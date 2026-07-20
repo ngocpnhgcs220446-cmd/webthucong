@@ -30,11 +30,15 @@ async function start() {
 
     await runCommand('npm', ['run', 'db:migrate']);
 
-    console.log('[Setup] Ensuring admin user exists...');
-    try {
-      await runCommand('node', ['server/create-admin.js']);
-    } catch (err) {
-      console.warn('[Setup] Warning: Admin creation script exited with an error. Continuing anyway.');
+    if (process.env.ENSURE_ADMIN_ON_START === 'true') {
+      console.log('[Setup] Ensuring admin user exists...');
+      try {
+        await runCommand('node', ['server/create-admin.js']);
+      } catch (err) {
+        console.warn('[Setup] Warning: Admin creation script exited with an error. Continuing anyway.');
+      }
+    } else {
+      console.log('[Setup] Skipping admin creation (ENSURE_ADMIN_ON_START is not true).');
     }
 
     if (process.env.AUTO_SEED === 'true') {

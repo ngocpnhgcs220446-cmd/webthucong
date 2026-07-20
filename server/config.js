@@ -3,7 +3,8 @@ import fs from 'fs';
 const PRODUCTION_DATABASE_URL = 'file:/app/data/production.db';
 
 export function validateEnvironment() {
-  const isProduction = process.env.NODE_ENV === 'production';
+  const nodeEnv = process.env.NODE_ENV || 'development';
+  const isProduction = nodeEnv === 'production';
   const databaseUrl = process.env.DATABASE_URL?.trim();
   const jwtSecret = process.env.JWT_SECRET?.trim();
 
@@ -18,7 +19,7 @@ export function validateEnvironment() {
   }
 
   console.log('[Config] Environment validated:', {
-    nodeEnv: process.env.NODE_ENV,
+    nodeEnv,
     databaseUrl,
     jwtConfigured: Boolean(jwtSecret),
     jwtLength: jwtSecret?.length || 0,

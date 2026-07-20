@@ -218,15 +218,6 @@ if (!fs.existsSync(PICS_DIR)) {
   fs.mkdirSync(PICS_DIR, { recursive: true });
 }
 
-const uploadLimits = { fileSize: 5 * 1024 * 1024 };
-const uploadFilter = (req, file, cb) => {
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Invalid file type. Only JPG, PNG and WEBP are allowed.'));
-  }
-};
 
 const cloudinaryCredentialsConfigured =
   Boolean(process.env.CLOUDINARY_CLOUD_NAME?.trim()) &&
