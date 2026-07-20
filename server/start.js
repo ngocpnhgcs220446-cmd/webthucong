@@ -30,6 +30,13 @@ async function start() {
 
     await runCommand('npm', ['run', 'db:migrate']);
 
+    console.log('[Setup] Ensuring admin user exists...');
+    try {
+      await runCommand('node', ['server/create-admin.js']);
+    } catch (err) {
+      console.warn('[Setup] Warning: Admin creation script exited with an error. Continuing anyway.');
+    }
+
     if (process.env.AUTO_SEED === 'true') {
       console.log('[Setup] Running optional seed...');
       await runCommand('npm', ['run', 'db:seed']);
