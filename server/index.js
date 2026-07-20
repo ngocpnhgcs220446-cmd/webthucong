@@ -16,6 +16,11 @@ import * as valid from './utils/validation.js';
 import pkg from '@prisma/client';
 const { PrismaClient } = pkg;
 
+console.log('[Database Runtime]', {
+  databaseUrl:
+    process.env.DATABASE_URL || null,
+});
+
 const prisma = new PrismaClient();
 const app = express();
 const PORT = Number(process.env.PORT || 5001);
@@ -561,9 +566,9 @@ app.get('/api/services/slug/:slug', async (req, res) => {
       include: { packages: { where: { active: true }, orderBy: { sortOrder: 'asc' } }, reviews: { where: { active: true }, orderBy: { sortOrder: 'asc' } } }
     });
     if (!service) return res.status(404).json({ error: 'Not found' });
-    
+
     if (!service.active && (!req.user || !req.user.role)) {
-       return res.status(404).json({ error: 'Not found' });
+      return res.status(404).json({ error: 'Not found' });
     }
 
     const formattedService = {
@@ -594,7 +599,7 @@ app.post('/api/services', authMiddleware, async (req, res) => {
   try {
     const data = req.body;
     const errors = {};
-    
+
     if (!data.title?.trim()) errors.title = 'Title is required';
     if (!data.category?.trim()) errors.category = 'Category is required';
     if (!data.price || !String(data.price).trim()) {
@@ -602,12 +607,12 @@ app.post('/api/services', authMiddleware, async (req, res) => {
     } else {
       data.price = String(data.price);
     }
-    
+
     data.slug = valid.createSlug(data.slug || data.title);
     if (!data.slug) errors.slug = 'Slug is required';
-    
+
     if (Object.keys(errors).length > 0) return res.status(400).json({ error: 'Validation failed', fields: errors });
-    
+
     if (data.minGuests && data.maxGuests && parseInt(data.minGuests) > parseInt(data.maxGuests)) {
       return res.status(400).json({ error: 'Validation failed', fields: { maxGuests: 'maxGuests must be >= minGuests' } });
     }
@@ -664,17 +669,17 @@ app.post('/api/services', authMiddleware, async (req, res) => {
         wheelchairAccessible: data.wheelchairAccessible || false,
         smallGroup: data.smallGroup || false,
         groupLimit: data.groupLimit ? parseInt(data.groupLimit) : null,
-        
+
         excludes: ensureJsonString(data.excludes),
         notAllowed: ensureJsonString(data.notAllowed),
         whatToBring: ensureJsonString(data.whatToBring),
         knowBeforeYouGo: ensureJsonString(data.knowBeforeYouGo),
-        
+
         meetingPointTitle: data.meetingPointTitle || '',
         meetingPointDescription: data.meetingPointDescription || '',
         googleMapsUrl: data.googleMapsUrl || '',
         mapEmbed: data.mapEmbed || '',
-        
+
         experienceTags: ensureJsonString(data.experienceTags),
         bookingTags: ensureJsonString(data.bookingTags),
         priorityTags: ensureJsonString(data.priorityTags),
@@ -718,7 +723,7 @@ app.put('/api/services/:id', authMiddleware, async (req, res) => {
   try {
     const id = String(req.params.id || '').trim();
     const data = req.body;
-    
+
     console.log('[Service Update] Request:', {
       id,
       bodyKeys: Object.keys(data || {}),
@@ -735,11 +740,11 @@ app.put('/api/services/:id', authMiddleware, async (req, res) => {
     if (!existingService) {
       return res.status(404).json({ error: 'Service not found.' });
     }
-    
+
     const errors = {};
     if (data.title !== undefined && !String(data.title).trim()) errors.title = 'Title is required';
     if (data.category !== undefined && !String(data.category).trim()) errors.category = 'Category is required';
-    
+
     if (data.price !== undefined) {
       if (!String(data.price).trim()) {
         errors.price = 'Price is required';
@@ -747,14 +752,14 @@ app.put('/api/services/:id', authMiddleware, async (req, res) => {
         data.price = String(data.price);
       }
     }
-    
+
     if (data.slug !== undefined) {
       data.slug = valid.createSlug(data.slug);
       if (!data.slug) errors.slug = 'Slug is required';
     }
-    
+
     if (Object.keys(errors).length > 0) return res.status(400).json({ error: 'Validation failed', fields: errors });
-    
+
     if (data.minGuests && data.maxGuests && parseInt(data.minGuests) > parseInt(data.maxGuests)) {
       return res.status(400).json({ error: 'Validation failed', fields: { maxGuests: 'maxGuests must be >= minGuests' } });
     }
@@ -811,12 +816,12 @@ app.put('/api/services/:id', authMiddleware, async (req, res) => {
         wheelchairAccessible: data.wheelchairAccessible,
         smallGroup: data.smallGroup,
         groupLimit: data.groupLimit !== undefined ? (data.groupLimit ? parseInt(data.groupLimit) : null) : undefined,
-        
+
         excludes: ensureJsonString(data.excludes || []),
         notAllowed: ensureJsonString(data.notAllowed || []),
         whatToBring: ensureJsonString(data.whatToBring || []),
         knowBeforeYouGo: ensureJsonString(data.knowBeforeYouGo || []),
-        
+
         meetingPointTitle: data.meetingPointTitle,
         meetingPointDescription: data.meetingPointDescription,
         googleMapsUrl: data.googleMapsUrl,
@@ -834,7 +839,7 @@ app.put('/api/services/:id', authMiddleware, async (req, res) => {
       await prisma.servicePackage.deleteMany({
         where: { serviceId: id, id: { notIn: packageIds } }
       });
-      
+
       for (const pkg of data.packages) {
         if (pkg.id) {
           await prisma.servicePackage.update({
@@ -905,7 +910,7 @@ app.put('/api/services/:id', authMiddleware, async (req, res) => {
 app.delete('/api/services/:id', authMiddleware, async (req, res) => {
   try {
     const id = String(req.params.id || '').trim();
-    
+
     console.log('[Service Delete] Request:', {
       id,
     });
@@ -994,7 +999,7 @@ app.get('/api/admin/dashboard', authMiddleware, async (req, res) => {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
       const monthLabel = monthNames[d.getMonth()];
-      
+
       const monthLeads = leads.filter(l => {
         const ld = new Date(l.createdAt);
         return ld.getMonth() === d.getMonth() && ld.getFullYear() === d.getFullYear();
@@ -1003,7 +1008,7 @@ app.get('/api/admin/dashboard', authMiddleware, async (req, res) => {
       const rev = monthLeads
         .filter(l => ['confirmed', 'completed'].includes(l.status))
         .reduce((sum, l) => sum + (l.estimatedRevenue || 0), 0);
-      
+
       monthlyData.push({
         name: monthLabel,
         leads: monthLeads.length,
@@ -1064,7 +1069,7 @@ app.get('/api/admin/calendar', authMiddleware, async (req, res) => {
 app.get('/api/leads', authMiddleware, async (req, res) => {
   try {
     const { status, q, from, to, serviceId } = req.query;
-    
+
     let whereClause = {};
     if (status) whereClause.status = status;
     if (serviceId) whereClause.serviceId = serviceId;
@@ -1073,7 +1078,7 @@ app.get('/api/leads', authMiddleware, async (req, res) => {
       if (from) whereClause.createdAt.gte = new Date(from);
       if (to) whereClause.createdAt.lte = new Date(to);
     }
-    
+
     if (q) {
       whereClause.OR = [
         { name: { contains: q } },
@@ -1098,7 +1103,7 @@ app.get('/api/leads', authMiddleware, async (req, res) => {
 app.get('/api/leads/export', authMiddleware, async (req, res) => {
   try {
     const { status, q, from, to, serviceId } = req.query;
-    
+
     let whereClause = {};
     if (status) whereClause.status = status;
     if (serviceId) whereClause.serviceId = serviceId;
@@ -1107,7 +1112,7 @@ app.get('/api/leads/export', authMiddleware, async (req, res) => {
       if (from) whereClause.createdAt.gte = new Date(from);
       if (to) whereClause.createdAt.lte = new Date(to);
     }
-    
+
     if (q) {
       whereClause.OR = [
         { name: { contains: q } },
@@ -1157,7 +1162,7 @@ app.post('/api/leads', leadLimiter, async (req, res) => {
   try {
     const data = req.body;
     const errors = {};
-    
+
     const name = valid.normalizeName(data.name);
     const email = valid.normalizeEmail(data.email);
     const phone = valid.normalizePhone(data.phone);
@@ -1166,10 +1171,10 @@ app.post('/api/leads', leadLimiter, async (req, res) => {
 
     const nameErr = valid.validateName(name, true);
     if (nameErr) errors.name = nameErr;
-    
+
     const emailErr = valid.validateEmail(email, true);
     if (emailErr) errors.email = emailErr;
-    
+
     const phoneErr = valid.validatePhone(phone, false);
     if (phoneErr) errors.phone = phoneErr;
 
@@ -1218,12 +1223,12 @@ app.post('/api/leads', leadLimiter, async (req, res) => {
     const datePrefix = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     let newLead = null;
     let retries = 3;
-    
+
     while (retries > 0 && !newLead) {
       try {
         const random = crypto.randomBytes(4).toString('hex').toUpperCase();
         const referenceCode = `REQ-${datePrefix}-${random}`;
-        
+
         newLead = await prisma.lead.create({
           data: {
             referenceCode,
@@ -1294,16 +1299,16 @@ app.put('/api/leads/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const data = req.body;
-    
+
     const errors = {};
     const validStatuses = ['new', 'contacted', 'quoted', 'deposit_paid', 'confirmed', 'completed', 'cancelled', 'lost'];
     if (data.status && !validStatuses.includes(data.status)) errors.status = 'Invalid status';
-    
+
     if (data.status === 'lost') {
       const lostReasonErr = valid.validateText(data.lostReason, 500, true);
       if (lostReasonErr) errors.lostReason = lostReasonErr;
     }
-    
+
     let revenue;
     if (data.estimatedRevenue !== undefined && data.estimatedRevenue !== '') {
       revenue = Number(data.estimatedRevenue);
@@ -1323,7 +1328,7 @@ app.put('/api/leads/:id', authMiddleware, async (req, res) => {
 
     const updatedLead = await prisma.lead.update({
       where: { id },
-      data: { 
+      data: {
         status: data.status,
         source: data.source,
         serviceNameSnapshot: data.serviceNameSnapshot,
@@ -1437,9 +1442,9 @@ app.get('/api/settings', async (req, res) => {
 
 app.put('/api/settings', authMiddleware, async (req, res) => {
   try {
-    const updates = req.body; 
+    const updates = req.body;
     const errors = {};
-    
+
     if (updates.companyName !== undefined) {
       const err = valid.validateName(updates.companyName, true);
       if (err) errors.companyName = err;
@@ -1452,7 +1457,7 @@ app.put('/api/settings', authMiddleware, async (req, res) => {
       const err = valid.validatePhone(updates.hotline, true);
       if (err) errors.hotline = err;
     }
-    
+
     // Validate social links
     ['facebookUrl', 'instagramUrl', 'tripadvisorUrl', 'googleMapsUrl'].forEach(key => {
       if (updates[key] !== undefined && updates[key].trim() !== '') {
