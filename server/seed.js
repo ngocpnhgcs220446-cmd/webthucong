@@ -98,7 +98,7 @@ const services = [
     includes: ['Mini lion head', 'Painting materials & brushes', 'Storytelling session', 'Instructor'],
     suitableFor: ['Families', 'Kids', 'Tourists'],
     featured: true,
-    
+
     // New Fields
     groupName: 'Cultural Crafting',
     shortDescription: 'Dive into the vibrant world of Vietnamese lion dancing by decorating a miniature paper maché lion head.',
@@ -114,7 +114,7 @@ const services = [
     experienceTags: ['Hands-on', 'Cultural', 'Family friendly'],
     bookingTags: ['Instant confirmation', 'Reserve now & pay later'],
     priorityTags: ['Family favorite', 'Signature'],
-    
+
     packages: [
       {
         name: 'Standard Experience',
@@ -273,14 +273,15 @@ async function main() {
         duration: s.duration,
         groupSize: s.groupSize,
         location: s.location,
-        image: s.image,
+        imageUrl: s.imageUrl || s.image || null,
+        imagePublicId: s.imagePublicId || null,
         gallery: JSON.stringify(s.gallery),
         highlights: JSON.stringify(s.highlights),
         description: s.description,
         includes: JSON.stringify(s.includes),
         suitableFor: JSON.stringify(s.suitableFor),
         featured: s.featured,
-        
+
         groupName: s.groupName || '',
         shortDescription: s.shortDescription || '',
         fullDescription: s.fullDescription || '',
@@ -296,7 +297,7 @@ async function main() {
         reviewCount: s.reviews ? s.reviews.length : 0
       },
     });
-    
+
     if (s.packages) {
       for (const p of s.packages) {
         await prisma.servicePackage.create({
@@ -314,7 +315,7 @@ async function main() {
         });
       }
     }
-    
+
     if (s.reviews) {
       for (const r of s.reviews) {
         await prisma.serviceReview.create({
@@ -329,7 +330,7 @@ async function main() {
         });
       }
     }
-    
+
     console.log(`Created service with id: ${service.id}`);
   }
 
