@@ -30,8 +30,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/public ./public
 
 RUN mkdir -p /app/data
-RUN mkdir -p /app/public/pics
 
-EXPOSE 5001
+EXPOSE 8080
 
 CMD ["npm", "start"]
