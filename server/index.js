@@ -1651,7 +1651,13 @@ if (isProduction) {
     express.static(DIST_DIR, {
       index: false,
       fallthrough: true,
-      maxAge: '1d',
+      setHeaders: (res, path) => {
+        if (path.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        } else {
+          res.setHeader('Cache-Control', 'public, max-age=31536000'); // 1 year for JS/CSS with hashes
+        }
+      }
     })
   );
 
