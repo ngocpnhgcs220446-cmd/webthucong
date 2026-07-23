@@ -13,3 +13,4 @@ createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </React.StrictMode>
 );
+console.log('App loaded: v2');
