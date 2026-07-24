@@ -401,7 +401,8 @@ export default function Contact() {
                     </p>
                   ) : (
                     <p style={{ fontSize: '16px', color: '#15803d', lineHeight: 1.6, marginBottom: '32px', maxWidth: '400px', margin: '0 auto 32px' }}>
-                      Email xác nhận đã được gửi đến địa chỉ của bạn.
+                      Email xác nhận đã được gửi đến địa chỉ của bạn.<br/>
+                      <span style={{ fontSize: '14px', color: '#6b7280' }}>Vui lòng kiểm tra cả Hộp thư đến và Thư rác (Spam).</span>
                     </p>
                   )}
                   

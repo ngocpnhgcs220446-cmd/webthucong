@@ -1296,6 +1296,7 @@ app.post('/api/leads', leadLimiter, async (req, res, next) => {
         referenceCode,
       },
       email: {
+        provider: emailProvider,
         adminNotificationSent: adminEmail.sent === true,
         customerConfirmationSent: customerEmail.sent === true,
       },

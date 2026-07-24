@@ -113,7 +113,8 @@ export default function InquiryModal({ service, selectedPackage, onClose }) {
             ) : (
               <p style={{ color: 'var(--text-light)', marginBottom: '24px', lineHeight: '1.6' }}>
                 Yêu cầu đã được gửi thành công.<br />
-                Email xác nhận đã được gửi đến địa chỉ của bạn.<br /><br />
+                Email xác nhận đã được gửi đến địa chỉ của bạn.<br />
+                <span style={{ fontSize: '13px', color: '#9ca3af' }}>Vui lòng kiểm tra cả Hộp thư đến và Thư rác (Spam).</span><br /><br />
                 Chúng tôi sẽ xem xét yêu cầu và liên hệ lại với bạn.<br />
               </p>
             )}
