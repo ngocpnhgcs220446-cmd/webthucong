@@ -4,7 +4,7 @@ import SEO from '../components/SEO';
 import PageTransition from '../components/PageTransition';
 import ScrollReveal from '../components/ScrollReveal';
 import { trackEvent } from '../utils/analytics';
-import { apiFetch } from '../utils/apiFetch';
+import { apiCall } from '../utils/apiFetch';
 import * as valid from '../utils/validation';
 import toast from 'react-hot-toast';
 
@@ -184,9 +184,18 @@ export default function Contact() {
         serviceId: sId || undefined
       };
 
-      const data = await apiFetch('/api/leads', {
+      console.log('[Lead Submit]', {
+        name: payload?.name || null,
+        email: payload?.email || null,
+        hasPhone: Boolean(payload?.phone),
+        hasMessage: Boolean(payload?.message),
+        serviceId: payload?.serviceId || null,
+        source: payload?.source || null,
+      });
+
+      const data = await apiCall('/api/leads', {
         method: 'POST',
-        body: JSON.stringify(payload)
+        body: payload
       });
       
       trackEvent('contact_form_submit', { service: sName });
@@ -194,12 +203,18 @@ export default function Contact() {
       setSubmittedData(data);
       setForm(initialForm);
     } catch (e) {
-      console.error('[Contact Form] Submit failed:', e);
-      if (e.fields) {
+      console.error('[Lead Submit Failed]', {
+        status: e.status,
+        response: e.message,
+        fields: e.fields,
+        submittedKeys: Object.keys(payload || {}),
+      });
+
+      if (e.fields && Object.keys(e.fields).length > 0) {
         setErrors(e.fields);
-        toast.error('Please fix validation errors', { id: toastId });
+        toast.error('Vui lòng kiểm tra lại thông tin.', { id: toastId });
       } else {
-        const errorMsg = e.error || e.message || 'Failed to submit inquiry. Please try again.';
+        const errorMsg = e.message || 'Không thể gửi yêu cầu. Vui lòng thử lại sau.';
         toast.error(errorMsg, { id: toastId });
       }
     } finally {

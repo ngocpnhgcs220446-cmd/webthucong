@@ -1132,11 +1132,15 @@ app.post('/api/leads', leadLimiter, async (req, res) => {
     const date = String(data.date || data.preferredDate || '').trim();
     const message = String(data.message || '').trim().slice(0, 2000);
 
-    const nameErr = valid.validateName(name, true);
-    if (nameErr) errors.name = nameErr;
+    if (!name) {
+      errors.name = 'Vui lòng nhập họ tên / Name is required.';
+    }
 
-    const emailErr = valid.validateEmail(email, true);
-    if (emailErr) errors.email = emailErr;
+    if (!email) {
+      errors.email = 'Vui lòng nhập email / Email is required.';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.email = 'Email không hợp lệ / Email is invalid.';
+    }
 
     const phoneErr = valid.validatePhone(phone, false);
     if (phoneErr) errors.phone = phoneErr;
@@ -1150,7 +1154,12 @@ app.post('/api/leads', leadLimiter, async (req, res) => {
     if (guestErr) errors.participants = guestErr;
 
     if (Object.keys(errors).length > 0) {
-      return res.status(400).json({ error: 'Validation failed', fields: errors });
+      return res.status(400).json({ 
+        success: false,
+        error: 'Please check the required fields.',
+        code: 'VALIDATION_ERROR',
+        fields: errors 
+      });
     }
 
     let serviceNameSnapshot = 'Need consultation';
@@ -1161,9 +1170,17 @@ app.post('/api/leads', leadLimiter, async (req, res) => {
     let packageCurrencySnapshot = null;
 
     if (serviceId) {
-      const service = await prisma.service.findUnique({ where: { id: serviceId } });
+      const service = await prisma.service.findUnique({ 
+        where: { id: serviceId },
+        select: { id: true, title: true, slug: true, status: true, active: true }
+      });
       if (!service || !service.active) {
-        return res.status(400).json({ error: 'Validation failed', fields: { serviceId: 'Invalid or inactive service' } });
+        return res.status(400).json({ 
+          success: false,
+          error: 'The selected service no longer exists.',
+          code: 'SERVICE_NOT_FOUND',
+          fields: { serviceId: 'Please select another service.' } 
+        });
       }
       serviceNameSnapshot = service.title;
 
@@ -1758,13 +1775,18 @@ app.use((error, req, res, next) => {
     return res.status(403).json({ error: 'Origin not allowed by CORS' });
   }
 
-  console.error('Unhandled server error:', { method: req.method, path: req.path, message: error?.message });
+  console.error('[Server Error]', {
+    method: req.method,
+    path: req.path,
+    name: error?.name,
+    message: error?.message,
+  });
 
-  if (isProduction) {
-    res.status(error.status || 500).json({ error: 'Internal server error' });
-  } else {
-    res.status(error.status || 500).json({ error: error?.message, stack: error?.stack });
-  }
+  return res.status(500).json({
+    success: false,
+    error: 'An unexpected server error occurred.',
+    code: 'INTERNAL_SERVER_ERROR',
+  });
 });
 
 const server = app.listen(PORT, '0.0.0.0', () => {
