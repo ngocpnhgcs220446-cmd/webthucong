@@ -368,19 +368,19 @@ export default function Contact() {
                   <div style={{ width: '80px', height: '80px', background: submittedData?.warning ? '#fef3c7' : '#dcfce7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
                     {submittedData?.warning ? <AlertTriangle size={40} color="#d97706" /> : <CheckCircle2 size={40} color="#16a34a" />}
                   </div>
-                  <h2 style={{ fontSize: '28px', color: submittedData?.warning ? '#92400e' : '#166534', marginBottom: '16px' }}>Request Received!</h2>
+                  <h2 style={{ fontSize: '28px', color: submittedData?.warning ? '#92400e' : '#166534', marginBottom: '16px' }}>{submittedData?.warning ? 'Yêu cầu đã được ghi nhận.' : 'Yêu cầu đã được gửi thành công.'}</h2>
                   
                   {submittedData?.warning ? (
                     <p style={{ fontSize: '16px', color: '#b45309', lineHeight: 1.6, marginBottom: '32px', maxWidth: '400px', margin: '0 auto 32px' }}>
-                      Your enquiry was saved, but we could not send a confirmation email. Rest assured, our team has received your request and will contact you soon.
+                      Hệ thống chưa thể xác nhận việc gửi email.
                     </p>
                   ) : (
                     <p style={{ fontSize: '16px', color: '#15803d', lineHeight: 1.6, marginBottom: '32px', maxWidth: '400px', margin: '0 auto 32px' }}>
-                      Thank you for reaching out. An email confirmation has been sent to your address. We will review your inquiry and get back to you within 24 hours.
+                      Email xác nhận đã được gửi đến địa chỉ của bạn.
                     </p>
                   )}
                   
-                  <button className="btn" onClick={() => setSubmittedData(null)} style={{ background: submittedData?.warning ? '#d97706' : 'var(--green)' }}>Send another message</button>
+                  <button className="btn" onClick={() => setSubmittedData(null)} style={{ background: submittedData?.warning ? '#d97706' : 'var(--green)' }}>Gửi yêu cầu khác</button>
                 </div>
               ) : (
                 <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '24px', padding: '40px', boxShadow: '0 20px 40px rgba(0,0,0,0.03)' }}>
@@ -488,7 +488,7 @@ export default function Contact() {
                     </div>
                     
                     <button className="btn" type="submit" disabled={isSubmitting} style={{ marginTop: '8px', padding: '16px', fontSize: '16px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                      {isSubmitting ? 'Submitting...' : 'Submit Booking Inquiry'} 
+                      {isSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu'} 
                       {!isSubmitting && <ArrowRight size={18} />}
                     </button>
                   </form>

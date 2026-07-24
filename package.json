@@ -35,13 +35,14 @@
     "lucide-react": "latest",
     "multer": "^2.2.0",
     "nodemailer": "^9.0.3",
+    "prisma": "^6.19.3",
     "react": "latest",
     "react-dom": "latest",
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "latest",
     "recharts": "^3.9.2",
-    "vite": "latest",
-    "prisma": "^6.19.3"
+    "resend": "^6.18.0",
+    "vite": "latest"
   },
   "devDependencies": {
     "concurrently": "^10.0.3",

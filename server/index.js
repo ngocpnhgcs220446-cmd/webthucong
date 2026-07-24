@@ -1244,9 +1244,34 @@ app.post('/api/leads', leadLimiter, async (req, res, next) => {
       }
     }
 
+    function getLeadRequestId(l) {
+      return l?.referenceCode || l?.requestId || l?.id || 'unknown-request';
+    }
+
+    function withTimeout(promise, milliseconds, label) {
+      return Promise.race([
+        promise,
+        new Promise((resolve) => {
+          setTimeout(() => {
+            resolve({ sent: false, reason: `${label}-timeout` });
+          }, milliseconds);
+        }),
+      ]);
+    }
+
+    const requestId = getLeadRequestId(newLead);
+    const emailContext = {
+      requestId,
+      customerName: newLead.name || name,
+      customerEmail: newLead.email || email,
+      customerPhone: newLead.phone || phone || 'Not provided',
+      customerMessage: newLead.message || message,
+      serviceTitle: newLead.serviceNameSnapshot || serviceNameSnapshot || 'General enquiry',
+    };
+
     const [adminResult, customerResult] = await Promise.allSettled([
-      sendAdminLeadNotification(newLead),
-      sendCustomerLeadConfirmation(newLead)
+      withTimeout(sendAdminLeadNotification(emailContext), 8000, 'admin-email'),
+      withTimeout(sendCustomerLeadConfirmation(emailContext), 8000, 'customer-email')
     ]);
 
     function normalizeEmailResult(result) {
@@ -1255,26 +1280,27 @@ app.post('/api/leads', leadLimiter, async (req, res, next) => {
       }
       return {
         sent: false,
-        reason: result.reason?.code || result.reason?.message || 'email-send-failed',
+        reason: result.reason?.name || result.reason?.code || result.reason?.message || 'email-send-failed',
       };
     }
 
     const adminEmail = normalizeEmailResult(adminResult);
     const customerEmail = normalizeEmailResult(customerResult);
 
-    const warning = (adminEmail.sent && customerEmail.sent) 
-      ? undefined 
-      : 'Your enquiry was saved, but email delivery could not be fully confirmed.';
+    const emailProvider = String(process.env.EMAIL_PROVIDER || 'resend').trim().toLowerCase();
 
     res.status(201).json({
       success: true,
       leadId: newLead.id,
-      requestId: newLead.referenceCode,
-      warning,
+      requestId,
       email: {
+        provider: emailProvider,
         adminNotificationSent: adminEmail.sent === true,
         customerConfirmationSent: customerEmail.sent === true,
-      }
+      },
+      warning: (adminEmail.sent && customerEmail.sent) 
+        ? undefined 
+        : 'Your enquiry was saved, but one or more emails could not be confirmed.',
     });
   } catch (error) {
     console.error('[Lead Submit] Failed:', {

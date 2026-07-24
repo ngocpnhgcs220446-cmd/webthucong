@@ -1,61 +1,32 @@
-import dotenv from 'dotenv';
-import nodemailer from 'nodemailer';
+import './config.js';
+import 'dotenv/config';
+import { sendAdminLeadNotification, sendCustomerLeadConfirmation } from './email.js';
 
-dotenv.config();
+async function testEmail() {
+  console.log('--- STARTING EMAIL TEST ---');
+  
+  const context = {
+    requestId: 'EMAIL-TEST-001',
+    customerName: 'Email Test',
+    customerEmail: process.env.ADMIN_NOTIFICATION_EMAIL || 'test@example.com',
+    customerPhone: '0900000000',
+    customerMessage: 'Testing Resend email delivery.',
+    serviceTitle: 'General enquiry',
+  };
 
-const smtpConfigured = Boolean(process.env.SMTP_HOST) && Boolean(process.env.SMTP_PORT) && Boolean(process.env.SMTP_USER) && Boolean(process.env.SMTP_PASS) && Boolean(process.env.SMTP_FROM);
+  console.log('Sending Admin Notification...');
+  const adminResult = await sendAdminLeadNotification(context);
+  console.log('Admin Result:', adminResult);
 
-console.log('[SMTP] Configuration:', {
-  hostConfigured: Boolean(process.env.SMTP_HOST),
-  portConfigured: Boolean(process.env.SMTP_PORT),
-  userConfigured: Boolean(process.env.SMTP_USER),
-  passConfigured: Boolean(process.env.SMTP_PASS),
-  fromConfigured: Boolean(process.env.SMTP_FROM),
-  adminEmailConfigured: Boolean(process.env.ADMIN_NOTIFICATION_EMAIL || process.env.ADMIN_NOTIFY_EMAIL),
-});
+  console.log('\nSending Customer Confirmation...');
+  const customerResult = await sendCustomerLeadConfirmation(context);
+  console.log('Customer Result:', customerResult);
+  
+  console.log('--- TEST FINISHED ---');
+  process.exit(0);
+}
 
-if (!smtpConfigured) {
-  console.log('Missing SMTP variables, aborting test.');
+testEmail().catch(err => {
+  console.error('Test Failed:', err);
   process.exit(1);
-}
-
-const port = Number(process.env.SMTP_PORT);
-const secureConfig = process.env.SMTP_SECURE ? String(process.env.SMTP_SECURE).toLowerCase() === 'true' : port === 465;
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: port,
-  secure: secureConfig,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
 });
-
-async function runTest() {
-  try {
-    await transporter.verify();
-    console.log('[SMTP] Connection verified. verify success');
-    
-    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || process.env.ADMIN_NOTIFY_EMAIL || process.env.SMTP_USER;
-    
-    const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM,
-      to: adminEmail,
-      subject: 'Test Email from Conical Hat Workshop',
-      text: 'This is a test email.',
-    });
-    
-    console.log('accepted:', info.accepted);
-    console.log('rejected:', info.rejected);
-    console.log('messageId:', info.messageId);
-    
-  } catch (error) {
-    console.error('[SMTP] Verification failed:', {
-      code: error?.code || null,
-      message: error?.message || null,
-    });
-  }
-}
-
-runTest();
