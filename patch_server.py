@@ -1,32 +1,52 @@
 with open("server/index.js", "r") as f:
     text = f.read()
 
-old_csp = """  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      imgSrc: ["'self'", 'data:', 'blob:', 'https://res.cloudinary.com'],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      connectSrc: ["'self'"],
-    },
-  },"""
+# Fix undefined body crash
+text = text.replace("const data = req.body;\n    const errors = {};", "const data = req.body || {};\n    const errors = {};")
 
-new_csp = """  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      imgSrc: ["'self'", 'data:', 'blob:', 'https://res.cloudinary.com', 'https://i.pravatar.cc'],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-      fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
-      connectSrc: ["'self'"],
-    },
-  },"""
+# Find the end of lead creation where we respond with 201
+old_response = """    res.status(201).json({
+      success: true,
+      message: 'Registration submitted successfully',
+      lead: {
+        id: newLead.id,
+        referenceCode: newLead.referenceCode,
+        name: newLead.name,
+        email: newLead.email,
+        serviceNameSnapshot: newLead.serviceNameSnapshot
+      },
+      email: {
+        adminNotification: adminNotificationStatus,
+        customerConfirmation: customerConfirmationStatus
+      }
+    });"""
 
-if old_csp in text:
-    text = text.replace(old_csp, new_csp)
+new_response = """    const warning = (adminNotificationStatus === 'failed' || customerConfirmationStatus === 'failed') 
+      ? 'Your enquiry was saved, but email delivery could not be confirmed.' 
+      : undefined;
+
+    res.status(201).json({
+      success: true,
+      message: 'Registration submitted successfully',
+      warning,
+      lead: {
+        id: newLead.id,
+        referenceCode: newLead.referenceCode,
+        name: newLead.name,
+        email: newLead.email,
+        serviceNameSnapshot: newLead.serviceNameSnapshot
+      },
+      email: {
+        adminNotification: adminNotificationStatus,
+        customerConfirmation: customerConfirmationStatus
+      }
+    });"""
+
+if old_response in text:
+    text = text.replace(old_response, new_response)
 else:
-    print("Old CSP not found!")
+    print("WARNING: Old response block not found!")
 
 with open("server/index.js", "w") as f:
     f.write(text)
-print("CSP patched.")
+print("server/index.js patched.")

@@ -563,7 +563,7 @@ app.get('/api/services/slug/:slug', async (req, res) => {
 // Create a new service
 app.post('/api/admin/services', authMiddleware, async (req, res) => {
   try {
-    const data = req.body;
+    const data = req.body || {};
     const errors = {};
 
     if (!data.title?.trim()) errors.title = 'Title is required';
@@ -1123,7 +1123,7 @@ const leadLimiter = rateLimit({
 // Create a new lead
 app.post('/api/leads', leadLimiter, async (req, res) => {
   try {
-    const data = req.body;
+    const data = req.body || {};
     const errors = {};
 
     const name = valid.normalizeName(data.name);
@@ -1236,9 +1236,14 @@ app.post('/api/leads', leadLimiter, async (req, res) => {
       console.error('[Email Error] Customer confirmation failed:', customerResult.reason);
     }
 
+    const warning = (adminNotificationStatus === 'failed' || customerConfirmationStatus === 'failed') 
+      ? 'Your enquiry was saved, but email delivery could not be confirmed.' 
+      : undefined;
+
     res.status(201).json({
       success: true,
       message: 'Registration submitted successfully',
+      warning,
       lead: {
         id: newLead.id,
         referenceCode: newLead.referenceCode,
