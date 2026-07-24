@@ -9,6 +9,7 @@
     "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
     "dev:client": "vite",
     "dev:server": "nodemon server/index.js",
+    "check:no-python": "node scripts/check-no-python.js",
     "build": "vite build",
     "preview": "vite preview",
     "db:generate": "prisma generate",

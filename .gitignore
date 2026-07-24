@@ -16,3 +16,12 @@ public/pics/*
 .DS_Store
 __MACOSX/
 npm-debug.log*
+
+# Python artifacts are not used by this project
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
