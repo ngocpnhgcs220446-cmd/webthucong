@@ -3,14 +3,21 @@ import nodemailer from 'nodemailer';
 export const verifyEmailConnection = async () => {
   const mailer = getTransporter();
   if (!mailer) {
-    console.warn('SMTP verification skipped: SMTP credentials not provided.');
-    return;
+    console.warn('[SMTP] Verification skipped:', { reason: 'smtp-not-configured' });
+    return { verified: false, reason: 'smtp-not-configured' };
   }
   try {
     await mailer.verify();
-    console.log('SMTP connection successful');
+    console.log('[SMTP] Connection verified.');
+    return { verified: true };
   } catch (error) {
-    console.error('SMTP verification failed:', error.message);
+    console.error('[SMTP] Verification failed:', {
+      code: error?.code || null,
+      responseCode: error?.responseCode || null,
+      command: error?.command || null,
+      message: error?.message || null,
+    });
+    return { verified: false, reason: error?.code || 'smtp-verification-failed' };
   }
 };
 
@@ -27,41 +34,76 @@ const escapeHtml = (unsafe) => {
 let transporter = null;
 
 const getTransporter = () => {
-  const requiredSmtpVariables = [
-    'SMTP_HOST',
-    'SMTP_PORT',
-    'SMTP_USER',
-    'SMTP_PASS',
-    'SMTP_FROM',
-  ];
+  const smtpHost = String(process.env.SMTP_HOST || 'smtp.gmail.com').trim();
+  const smtpUser = String(process.env.SMTP_USER || '').trim();
+  const smtpPass = String(process.env.SMTP_PASS || '').trim();
+  const smtpFromRaw = String(process.env.SMTP_FROM || '').trim();
+  
+  const adminNotificationEmail = String(
+    process.env.ADMIN_NOTIFICATION_EMAIL ||
+    process.env.ADMIN_NOTIFY_EMAIL ||
+    process.env.SMTP_USER ||
+    ''
+  ).trim();
 
-  const missingSmtpVariables = requiredSmtpVariables.filter(
-    (key) => !process.env[key]?.trim()
-  );
+  const missingSmtpVariables = [];
+  if (!smtpUser) missingSmtpVariables.push('SMTP_USER');
+  if (!smtpPass) missingSmtpVariables.push('SMTP_PASS');
+  if (!smtpFromRaw) missingSmtpVariables.push('SMTP_FROM');
 
-  if (missingSmtpVariables.length > 0) {
-    console.warn('Missing SMTP configuration for:', missingSmtpVariables.join(', '));
-    return null;
-  }
+  const smtpConfigured = missingSmtpVariables.length === 0;
 
-  if (!transporter) {
-    const port = Number(process.env.SMTP_PORT);
-    const secureConfig = process.env.SMTP_SECURE 
+  if (!transporter && smtpConfigured) {
+    const smtpPort = Number(process.env.SMTP_PORT || 465);
+    const smtpSecure = process.env.SMTP_SECURE !== undefined
       ? String(process.env.SMTP_SECURE).toLowerCase() === 'true'
-      : port === 465;
+      : smtpPort === 465;
       
     transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: port,
-      secure: secureConfig,
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecure,
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user: smtpUser,
+        pass: smtpPass,
       },
     });
+    
+    // Output safety logs once on create
+    console.log('[SMTP] Configuration:', {
+      hostConfigured: Boolean(smtpHost),
+      port: smtpPort,
+      secure: smtpSecure,
+      userConfigured: Boolean(smtpUser),
+      passConfigured: Boolean(smtpPass),
+      fromConfigured: Boolean(smtpFromRaw),
+      adminRecipientConfigured: Boolean(adminNotificationEmail),
+      senderAndAdminSame: smtpUser === adminNotificationEmail,
+    });
+  } else if (!transporter && !smtpConfigured) {
+    console.warn('[SMTP] Missing configuration:', { missing: missingSmtpVariables });
   }
+
   return transporter;
 };
+
+const getSmtpFrom = () => {
+  const smtpUser = String(process.env.SMTP_USER || '').trim();
+  const smtpFromRaw = String(process.env.SMTP_FROM || '').trim();
+  return smtpFromRaw.includes('<') 
+    ? smtpFromRaw 
+    : `Conical Hat Workshop <${smtpFromRaw || smtpUser}>`;
+};
+
+const getAdminEmail = () => {
+  return String(
+    process.env.ADMIN_NOTIFICATION_EMAIL ||
+    process.env.ADMIN_NOTIFY_EMAIL ||
+    process.env.SMTP_USER ||
+    ''
+  ).trim();
+};
+
 
 const wrapEmailHtml = (content, companyName) => `
 <!DOCTYPE html>
@@ -104,16 +146,10 @@ const wrapEmailHtml = (content, companyName) => `
 
 export const sendAdminLeadNotification = async (lead) => {
   const mailer = getTransporter();
-  if (!mailer) {
-    console.log(`[Email Simulation] Admin Notification skipped for ${lead.referenceCode}`);
-    return { sent: false, reason: 'smtp-not-configured' };
-  }
+  if (!mailer) return { sent: false, reason: 'smtp-not-configured' };
 
-  let adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || process.env.ADMIN_NOTIFY_EMAIL;
-  if (!adminEmail) {
-    console.warn('ADMIN_NOTIFICATION_EMAIL is missing. Fallback to SMTP_USER');
-    adminEmail = process.env.SMTP_USER;
-  }
+  const adminEmail = getAdminEmail();
+  if (!adminEmail) return { sent: false, reason: 'admin-recipient-not-configured' };
 
   const publicSiteUrl = process.env.PUBLIC_SITE_URL || 'http://localhost:5173';
   const adminUrl = `${publicSiteUrl}/admin/leads`;
@@ -187,14 +223,29 @@ This is an automated notification.
 
   try {
     const info = await mailer.sendMail({
-      from: process.env.SMTP_FROM || 'no-reply@example.com',
+      from: getSmtpFrom(),
       to: adminEmail,
       replyTo: lead.email,
       subject: subject,
       text: textContent,
       html: htmlContent
     });
-    return { sent: true, messageId: info.messageId, accepted: info.accepted, rejected: info.rejected };
+    
+    const sent = Array.isArray(info.accepted) && info.accepted.length > 0;
+    console.log('[Email] Admin notification result:', {
+      requestId: lead.referenceCode,
+      sent,
+      acceptedCount: info.accepted?.length || 0,
+      rejectedCount: info.rejected?.length || 0,
+      messageId: info.messageId || null,
+    });
+    
+    return { 
+      sent, 
+      messageId: info.messageId || null, 
+      accepted: info.accepted || [], 
+      rejected: info.rejected || [] 
+    };
   } catch (error) {
     console.error(`[Email Error] Failed to send Admin Notification for ${lead.referenceCode}:`, error);
     throw error;
@@ -203,14 +254,11 @@ This is an automated notification.
 
 export const sendCustomerLeadConfirmation = async (lead) => {
   const mailer = getTransporter();
-  if (!mailer) {
-    console.log(`[Email Simulation] Customer Confirmation skipped for ${lead.referenceCode}`);
-    return { sent: false, reason: 'smtp-not-configured' };
-  }
+  if (!mailer) return { sent: false, reason: 'smtp-not-configured' };
 
-  let replyToEmail = process.env.COMPANY_SUPPORT_EMAIL;
-  if (!replyToEmail) replyToEmail = process.env.ADMIN_NOTIFICATION_EMAIL || process.env.ADMIN_NOTIFY_EMAIL;
-  if (!replyToEmail) replyToEmail = process.env.SMTP_USER;
+  if (!lead.email) return { sent: false, reason: 'customer-email-missing' };
+
+  let replyToEmail = process.env.COMPANY_SUPPORT_EMAIL || getAdminEmail();
 
   const companyName = process.env.COMPANY_NAME || 'Experience Platform';
   const companyPhone = process.env.COMPANY_PHONE || '';
@@ -290,14 +338,29 @@ ${companyPhone ? `Phone: ${companyPhone}` : ''}
 
   try {
     const info = await mailer.sendMail({
-      from: process.env.SMTP_FROM || 'no-reply@example.com',
+      from: getSmtpFrom(),
       to: lead.email,
       replyTo: replyToEmail,
       subject: subject,
       text: textContent,
       html: htmlContent
     });
-    return { sent: true, messageId: info.messageId, accepted: info.accepted, rejected: info.rejected };
+    
+    const sent = Array.isArray(info.accepted) && info.accepted.length > 0;
+    console.log('[Email] Customer confirmation result:', {
+      requestId: lead.referenceCode,
+      sent,
+      acceptedCount: info.accepted?.length || 0,
+      rejectedCount: info.rejected?.length || 0,
+      messageId: info.messageId || null,
+    });
+    
+    return { 
+      sent, 
+      messageId: info.messageId || null, 
+      accepted: info.accepted || [], 
+      rejected: info.rejected || [] 
+    };
   } catch (error) {
     console.error(`[Email Error] Failed to send Customer Confirmation for ${lead.referenceCode}:`, error);
     throw error;
