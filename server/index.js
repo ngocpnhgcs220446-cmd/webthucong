@@ -91,6 +91,8 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
       connectSrc: ["'self'"],
+      frameSrc: ["'self'", 'https://www.google.com', 'https://maps.google.com'],
+      childSrc: ["'self'", 'https://www.google.com', 'https://maps.google.com'],
     },
   },
 }));
@@ -1274,8 +1276,13 @@ app.post('/api/leads', leadLimiter, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to create lead' });
+    console.error('[Lead Submit] Failed:', {
+      name: error?.name || null,
+      code: error?.code || null,
+      message: error?.message || null,
+      stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined,
+    });
+    next(error);
   }
 });
 
