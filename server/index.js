@@ -83,6 +83,15 @@ console.log('[Proxy] Configuration:', {
 
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      imgSrc: ["'self'", 'data:', 'blob:', 'https://res.cloudinary.com'],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      connectSrc: ["'self'"],
+    },
+  },
 }));
 
 // --- CORS Configuration ---
@@ -1419,7 +1428,7 @@ app.put('/api/settings', authMiddleware, async (req, res) => {
       }
     });
 
-    if (Object.keys(keys).length > 0) return res.status(400).json({ error: 'Validation failed', fields: errors });
+    if (Object.keys(errors).length > 0) return res.status(400).json({ error: 'Validation failed', fields: errors });
     for (const [key, value] of Object.entries(updates)) {
       await prisma.setting.upsert({
         where: { key },
@@ -1427,8 +1436,17 @@ app.put('/api/settings', authMiddleware, async (req, res) => {
         create: { key, value: String(value) }
       });
     }
-    res.json({ success: true });
-  } catch (error) { res.status(500).json({ error: 'Failed to update settings' }); }
+    
+    // Fetch and return the updated settings
+    const allSettings = await prisma.setting.findMany();
+    const result = {};
+    allSettings.forEach(s => { result[s.key] = s.value; });
+    
+    res.json({ success: true, settings: result });
+  } catch (error) { 
+    console.error('[Settings Update Error]', error);
+    res.status(500).json({ error: 'Failed to update settings' }); 
+  }
 });
 
 // --- TESTIMONIALS ---

@@ -168,7 +168,7 @@ export default function ServiceDetail() {
             }}>
               {/* Main Image */}
               <div className="bento-box" style={{ width: '100%', height: '100%', overflow: 'hidden' }} onClick={() => setActiveImageIndex(0)}>
-                <img src={service.imageUrl || '/pics/product-placeholder.jpg'} alt={service.title} className="bento-img" />
+                <img src={service.imageUrl || '/pics/product-placeholder.jpg'} alt={service.title} className="bento-img" onError={(e) => { e.target.src = '/pics/product-placeholder.jpg'; e.target.onerror = null; }} />
               </div>
               
               {/* Side Images */}

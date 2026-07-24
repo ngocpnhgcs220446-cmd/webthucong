@@ -69,7 +69,7 @@ export default function App() {
     <AuthProvider>
       <SettingsProvider>
         <ScrollAndTrack />
-        <Toaster position="top-right" />
+        <Toaster position="top-right" toastOptions={{ style: { zIndex: 9999 } }} />
         <AdminBar />
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>

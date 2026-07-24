@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../utils/apiFetch';
 import SEO from '../components/SEO';
 import PageTransition from '../components/PageTransition';
-import toast from 'react-hot-toast';
+import { showToast, getApiErrorMessage } from '../utils/toastHelper';
 
 function ContactGroup({ title, children }) {
   return (
@@ -52,10 +52,9 @@ export default function AdminContact() {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleSave = async (e) => {
-    e.preventDefault();
+  const handleSaveAll = async (e) => {
+    if (e) e.preventDefault();
     setIsSaving(true);
-    const toastId = toast.loading('Saving contact info...');
     try {
       // Create a payload with only the contact-specific keys
       const contactKeys = [
@@ -75,13 +74,15 @@ export default function AdminContact() {
       });
 
       if (res.ok) {
-        toast.success('Contact info saved successfully', { id: toastId });
+        const data = await res.json();
+        setSettings(data.settings);
+        showToast({ type: 'success', title: 'Đã lưu liên hệ', message: 'Thông tin liên hệ đã được cập nhật thành công.' });
       } else {
         const data = await res.json();
-        toast.error(data.error || 'Failed to save', { id: toastId });
+        throw new Error(data.error || 'Failed to save');
       }
     } catch (e) {
-      toast.error('Failed to save', { id: toastId });
+      showToast({ type: 'error', title: 'Không thể lưu liên hệ', message: getApiErrorMessage(e) });
     } finally {
       setIsSaving(false);
     }

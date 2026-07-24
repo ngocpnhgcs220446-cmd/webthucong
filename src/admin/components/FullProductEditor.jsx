@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import toast from 'react-hot-toast';
+import { showToast, getApiErrorMessage } from '../../utils/toastHelper';
 import { X, Plus, Trash2, ExternalLink, Save, Star, Upload } from 'lucide-react';
 import { 
   PRODUCT_CATEGORIES, 
@@ -115,6 +115,7 @@ function normalizeService(s) {
 export default function FullProductEditor({ service, mode, onClose, onSave }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState(
     normalizeService(service) || {
@@ -225,7 +226,7 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       setActiveTab('overview');
-      toast.error('Please fill in required fields');
+      showToast({ type: 'error', title: 'Thiếu thông tin', message: 'Vui lòng kiểm tra các trường bắt buộc.' });
       return;
     }
     
@@ -245,9 +246,9 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
       if (error.fields) {
         setErrors(error.fields);
         if (error.fields.featured) setActiveTab('overview');
-        toast.error('Validation errors, please check the form.');
+        showToast({ type: 'error', title: 'Lỗi xác thực', message: 'Vui lòng kiểm tra lại thông tin form.' });
       } else {
-        toast.error(error.error || error.message || 'Failed to save product');
+        showToast({ type: 'error', title: 'Không thể lưu sản phẩm', message: getApiErrorMessage(error) });
       }
     }
     setIsSaving(false);
@@ -369,7 +370,7 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
                     <input type="file" multiple accept="image/jpeg,image/jpg,image/png,image/webp" style={{ display: 'none' }} onChange={async (e) => {
                       const files = Array.from(e.target.files);
                       if (!files.length) return;
-                      const toastId = toast.loading(`Uploading ${files.length} images...`);
+                      setIsUploadingImage(true);
                       try {
                         const newUrls = [];
                         const newPublicIds = [];
@@ -387,9 +388,12 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
                           const newPublicId = !prev.imagePublicId && newPublicIds.length ? newPublicIds[0] : prev.imagePublicId;
                           return { ...prev, gallery: updatedGallery, galleryPublicIds: updatedPublicIds, imageUrl: newImageUrl, imagePublicId: newPublicId };
                         });
-                        toast.success('Upload complete', { id: toastId });
+
+                        showToast({ type: 'success', title: 'Tải ảnh thành công', message: `Đã tải lên ${files.length} ảnh. Hãy Lưu để áp dụng thay đổi.` });
                       } catch(err) {
-                        toast.error('Upload failed: ' + err.message, { id: toastId });
+                        showToast({ type: 'error', title: 'Không thể tải ảnh', message: getApiErrorMessage(err) });
+                      } finally {
+                        setIsUploadingImage(false);
                       }
                       e.target.value = '';
                     }} />
@@ -705,12 +709,12 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
         
         {/* Footer */}
         <div className="admin-form-footer">
-          <button type="button" onClick={onClose} disabled={isSaving} style={{ padding: '10px 24px', border: '1px solid #cbd5e1', borderRadius: '12px', background: '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: '#334155' }}>
+          <button type="button" onClick={onClose} disabled={isSaving || isUploadingImage} style={{ padding: '10px 24px', border: '1px solid #cbd5e1', borderRadius: '12px', background: '#fff', cursor: isSaving || isUploadingImage ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 600, color: '#334155' }}>
             Cancel
           </button>
-          <button type="submit" form="productForm" disabled={isSaving} style={{ padding: '10px 24px', background: isSaving ? '#64748b' : '#0f172a', color: '#fff', border: 'none', borderRadius: '12px', cursor: isSaving ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button type="submit" form="productForm" disabled={isSaving || isUploadingImage} style={{ padding: '10px 24px', background: isSaving || isUploadingImage ? '#64748b' : '#0f172a', color: '#fff', border: 'none', borderRadius: '12px', cursor: isSaving || isUploadingImage ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Save size={16} />
-            {isSaving ? 'Saving...' : 'Save Product'}
+            {isSaving ? 'Saving...' : isUploadingImage ? 'Wait for upload...' : 'Save Product'}
           </button>
         </div>
       </div>

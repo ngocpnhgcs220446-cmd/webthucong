@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import toast from 'react-hot-toast';
+import { showToast, getApiErrorMessage } from '../../utils/toastHelper';
 import { Upload } from 'lucide-react';
 import { apiFetch } from '../../utils/apiFetch';
 
@@ -15,12 +15,12 @@ export default function AdminImageUploader({ currentImage, onUpload, value, onCh
     if (!file) return;
     
     if (!allowedTypes.includes(file.type)) {
-      toast.error('Chỉ hỗ trợ ảnh JPG, PNG hoặc WEBP.');
+      showToast({ type: 'error', title: 'File không hợp lệ', message: 'Chỉ hỗ trợ ảnh JPG, PNG hoặc WEBP.' });
       return;
     }
     
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Ảnh không được lớn hơn 5 MB.');
+      showToast({ type: 'error', title: 'Ảnh quá lớn', message: 'Dung lượng ảnh không được vượt quá 5 MB.' });
       return;
     }
     
@@ -34,14 +34,16 @@ export default function AdminImageUploader({ currentImage, onUpload, value, onCh
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        // Pass string URL as first arg for backward compatibility, and the full object as second arg
+        if (!data.image?.imageUrl || !data.image?.publicId) {
+           throw new Error('Server không trả về thông tin ảnh hợp lệ.');
+        }
         handleChange(data.image.imageUrl, data.image);
-        toast.success('Image uploaded');
+        showToast({ type: 'success', title: 'Tải ảnh thành công', message: 'Ảnh đã được tải lên. Hãy bấm Lưu để áp dụng thay đổi.' });
       } else {
-        toast.error(data.error || 'Upload failed');
+        throw new Error(data.error || 'Upload failed');
       }
     } catch (err) {
-      toast.error('Network error');
+      showToast({ type: 'error', title: 'Không thể tải ảnh', message: getApiErrorMessage(err, 'Đã xảy ra lỗi khi tải ảnh.') });
     }
     setIsUploading(false);
   };

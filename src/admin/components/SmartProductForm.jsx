@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import toast from 'react-hot-toast';
+import { showToast, getApiErrorMessage } from '../../utils/toastHelper';
 import { X, ArrowRight, ArrowLeft, CheckCircle2, Camera, AlertTriangle } from 'lucide-react';
 import AdminImageUploader from './AdminImageUploader';
 import {
@@ -32,7 +32,7 @@ function BigField({ label, sublabel, required, error, children }) {
       )}
       {children}
       {error && (
-        <div style={{
+        <div role="alert" style={{
           marginTop: 8,
           display: 'flex',
           alignItems: 'center',
@@ -171,7 +171,7 @@ export default function SmartProductForm({ onClose, onSuccess, onOpenEditor }) {
 
   const goNext = () => {
     if (!validateStep1()) {
-      toast.error('Vui lòng điền đủ các trường bắt buộc có dấu *');
+      showToast({ type: 'error', title: 'Thiếu thông tin', message: 'Vui lòng điền đủ các trường bắt buộc có dấu *' });
       // Scroll to top to see errors
       document.querySelector('.admin-form-body')?.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -199,12 +199,11 @@ export default function SmartProductForm({ onClose, onSuccess, onOpenEditor }) {
     // Always validate step 1
     if (!validateStep1()) {
       setStep(1);
-      toast.error('Vui lòng kiểm tra lại thông tin bắt buộc');
+      showToast({ type: 'error', title: 'Thiếu thông tin', message: 'Vui lòng kiểm tra lại các trường bị thiếu.' });
       return;
     }
 
     setIsSaving(true);
-    const toastId = toast.loading('Đang tạo sản phẩm...');
     try {
       const payload = buildPayload();
       const res = await apiFetch('/api/admin/services', {
@@ -220,11 +219,11 @@ export default function SmartProductForm({ onClose, onSuccess, onOpenEditor }) {
       
       const created = await res.json();
       const newService = created.service || created;
-      toast.success('✅ Tạo sản phẩm thành công!', { id: toastId });
+      showToast({ type: 'success', title: 'Tạo sản phẩm thành công', message: 'Sản phẩm đã được tạo. Bạn có thể tiếp tục chỉnh sửa chi tiết.' });
       openEditor && onOpenEditor ? onOpenEditor(newService) : onSuccess(newService);
     } catch (err) {
       if (err.fields) setErrors(err.fields);
-      toast.error(err.message || 'Không thể tạo sản phẩm', { id: toastId });
+      showToast({ type: 'error', title: 'Không thể tạo sản phẩm', message: getApiErrorMessage(err, 'Đã xảy ra lỗi khi tạo sản phẩm.') });
     } finally {
       setIsSaving(false);
     }

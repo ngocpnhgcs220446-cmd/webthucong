@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Clock, MapPin, Users, Star, Heart, ShieldCheck, Sparkles, ImagePlus, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import toast from 'react-hot-toast';
+import { showToast, getApiErrorMessage } from '../utils/toastHelper';
 import SEO from '../components/SEO';
 import { SectionHeader } from '../components/Section';
 import ServiceCard from '../components/ServiceCard';
@@ -40,6 +40,7 @@ export default function Home() {
   const { isAdmin, registerSave, clearSave } = useAuth();
   const isAdminMode = useAdminMode();
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   useEffect(() => {
     fetch('/api/services').then(r => r.json()).then(data => setServices(data?.services ? data.services : Array.isArray(data) ? data : [])).catch(console.error);
@@ -83,9 +84,9 @@ export default function Home() {
         body: JSON.stringify(payload) 
       });
       await refreshSettings();
-      toast.success('Homepage layout and content saved successfully!');
+      showToast({ type: 'success', title: 'Đã lưu cài đặt', message: 'Cài đặt trang chủ đã được lưu.' });
     } catch (e) { 
-      toast.error('Failed to save layout and content.'); 
+      showToast({ type: 'error', title: 'Lỗi', message: getApiErrorMessage(e, 'Không thể lưu cài đặt.') }); 
     }
     setIsSaving(false);
   };
@@ -98,7 +99,7 @@ export default function Home() {
 
   const uploadImage = async (file) => {
     if (!file) return null;
-    const toastId = toast.loading('Uploading image...');
+    setIsUploadingImage(true);
     const formData = new FormData();
     formData.append('image', file);
     try {
@@ -112,11 +113,13 @@ export default function Home() {
         throw new Error(data.error || 'Upload failed');
       }
       
-      toast.success('Image uploaded!', { id: toastId });
+      showToast({ type: 'success', title: 'Đã tải lên', message: 'Tải ảnh thành công.' });
       return data.image.imageUrl;
     } catch (e) {
-      toast.error(e.message || 'Failed to upload image', { id: toastId });
+      showToast({ type: 'error', title: 'Lỗi tải ảnh', message: getApiErrorMessage(e) });
       return null;
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 

@@ -5,7 +5,7 @@ import { apiFetch } from '../utils/apiFetch';
 import SEO from '../components/SEO';
 import PageTransition from '../components/PageTransition';
 import ImageUploader from '../components/ImageUploader';
-import toast from 'react-hot-toast';
+import { showToast, getApiErrorMessage } from '../utils/toastHelper';
 
 function SettingsGroup({ title, children, description }) {
   return (
@@ -67,7 +67,7 @@ export default function AdminSettings() {
     if (e) e.preventDefault();
     setIsSaving(true);
     setErrors({});
-    const toastId = toast.loading('Saving settings...');
+
     try {
       const res = await apiFetch('/api/settings', {
         method: 'PUT',
@@ -79,19 +79,19 @@ export default function AdminSettings() {
       const data = await res.json();
 
       if (res.ok) {
-        toast.success('Settings saved successfully', { id: toastId });
+        setSettings(data.settings);
+        showToast({ type: 'success', title: 'Đã lưu thiết lập', message: 'Thiết lập chung đã được cập nhật.' });
         await refreshSettings(); // Sync global state
-        fetch('/api/settings').then(r => r.json()).then(setSettings).catch(console.error);
       } else {
         if (data.fields) {
           setErrors(data.fields);
-          toast.error('Please fix the highlighted fields', { id: toastId });
+          showToast({ type: 'error', title: 'Lỗi thông tin', message: 'Vui lòng kiểm tra lại các trường báo lỗi.' });
         } else {
-          toast.error(data.error || 'Failed to save settings', { id: toastId });
+          throw new Error(data.error || 'Failed to save settings');
         }
       }
     } catch (e) {
-      toast.error('Failed to save settings', { id: toastId });
+      showToast({ type: 'error', title: 'Không thể lưu thiết lập', message: getApiErrorMessage(e) });
     }
     setIsSaving(false);
   };
