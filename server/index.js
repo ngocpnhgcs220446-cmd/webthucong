@@ -1123,7 +1123,7 @@ const leadLimiter = rateLimit({
 });
 
 // Create a new lead
-app.post('/api/leads', leadLimiter, async (req, res) => {
+app.post('/api/leads', leadLimiter, async (req, res, next) => {
   try {
     const data = req.body || {};
     const errors = {};
@@ -1174,9 +1174,9 @@ app.post('/api/leads', leadLimiter, async (req, res) => {
     if (serviceId) {
       const service = await prisma.service.findUnique({ 
         where: { id: serviceId },
-        select: { id: true, title: true, slug: true, status: true, active: true }
+        select: { id: true, title: true, slug: true, status: true }
       });
-      if (!service || !service.active) {
+      if (!service || service.status !== 'published') {
         return res.status(400).json({ 
           success: false,
           error: 'The selected service no longer exists.',
@@ -1188,7 +1188,7 @@ app.post('/api/leads', leadLimiter, async (req, res) => {
 
       if (packageId) {
         const pkg = await prisma.servicePackage.findFirst({
-          where: { id: packageId, serviceId: serviceId, active: true }
+          where: { id: packageId, serviceId: serviceId }
         });
         if (!pkg) {
           return res.status(400).json({ error: 'Validation failed', fields: { packageId: 'Invalid or inactive package for this service' } });
