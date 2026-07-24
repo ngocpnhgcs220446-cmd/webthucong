@@ -153,7 +153,7 @@ export default function AdminProducts() {
     setLoading(true);
     try {
       const data = await apiCall('/api/admin/services');
-      setProducts(Array.isArray(data) ? data : []);
+      setProducts(data.services ? data.services : Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('[Products] Fetch failed', err);
       toast.error(err.message || 'Failed to load products');
@@ -198,9 +198,10 @@ export default function AdminProducts() {
     if (!window.confirm(`Delete "${product.title}"?\n\nThis cannot be undone.`)) return;
     try {
       setDeletingId(product.id);
-      await apiCall(`/api/services/${product.id}`, { method: 'DELETE' });
-      setProducts(prev => prev.filter(p => p.id !== product.id));
-      toast.success('Product deleted');
+      await apiCall(`/api/admin/services/${product.id}`, { method: 'DELETE' });
+      // Change status to archived instead of removing
+      setProducts(prev => prev.map(p => p.id === product.id ? { ...p, status: 'archived', featured: false } : p));
+      toast.success('Product deleted (archived)');
     } catch (err) {
       console.error('[Products] Delete failed', err);
       toast.error(err.message || 'Failed to delete product');
@@ -208,30 +209,33 @@ export default function AdminProducts() {
     setDeletingId(null);
   };
 
-  const handleToggleActive = async (product) => {
+  const handleToggleStatus = async (product) => {
+    const newStatus = product.status === 'published' ? 'draft' : 'published';
     try {
-      const updated = await apiCall(`/api/services/${product.id}`, {
+      const updatedResponse = await apiCall(`/api/admin/services/${product.id}`, {
         method: 'PUT',
-        body: { ...product, active: !product.active, featured: !product.active ? product.featured : false },
+        body: { ...product, status: newStatus, featured: newStatus !== 'published' ? false : product.featured },
       });
+      const updated = updatedResponse.service || updatedResponse;
       setProducts(prev => prev.map(p => p.id === product.id ? { ...p, ...updated } : p));
-      toast.success(`Product ${!product.active ? 'activated' : 'deactivated'}`);
+      toast.success(`Product ${newStatus === 'published' ? 'published' : 'drafted'}`);
     } catch (err) {
       toast.error(err.message || 'Failed to update');
     }
   };
 
   const handleToggleFeatured = async (product) => {
-    const featuredActive = products.filter(p => p.featured && p.active && p.id !== product.id).length;
+    const featuredActive = products.filter(p => p.featured && p.status === 'published' && p.id !== product.id).length;
     if (!product.featured && featuredActive >= 4) {
       toast.error('Home can only have 4 featured products. Unfeature another one first.');
       return;
     }
     try {
-      const updated = await apiCall(`/api/services/${product.id}`, {
+      const updatedResponse = await apiCall(`/api/admin/services/${product.id}`, {
         method: 'PUT',
         body: { ...product, featured: !product.featured },
       });
+      const updated = updatedResponse.service || updatedResponse;
       setProducts(prev => prev.map(p => p.id === product.id ? { ...p, ...updated } : p));
       toast.success(`Product ${!product.featured ? 'featured' : 'unfeatured'}`);
     } catch (err) {
@@ -246,17 +250,19 @@ export default function AdminProducts() {
           toast.error('Cannot find Product ID to update.');
           return;
         }
-        const updated = await apiCall(`/api/services/${encodeURIComponent(editingServiceId)}`, {
+        const updatedResponse = await apiCall(`/api/admin/services/${encodeURIComponent(editingServiceId)}`, {
           method: 'PUT',
           body: payload
         });
+        const updated = updatedResponse.service || updatedResponse;
         setProducts(prev => prev.map(p => p.id === editingServiceId ? updated : p));
         toast.success('Product updated successfully.');
       } else {
-        const created = await apiCall('/api/services', {
+        const createdResponse = await apiCall('/api/admin/services', {
           method: 'POST',
           body: payload
         });
+        const created = createdResponse.service || createdResponse;
         setProducts(prev => [created, ...prev]);
         toast.success('Product created successfully.');
       }
@@ -269,11 +275,11 @@ export default function AdminProducts() {
     }
   };
 
-  const filtered = products.filter(p =>
+  const filtered = products.filter(p => p.status !== 'archived').filter(p =>
     !search || p.title?.toLowerCase().includes(search.toLowerCase()) || p.category?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const featuredCount = products.filter(p => p.featured && p.active).length;
+  const featuredCount = products.filter(p => p.featured && p.status === 'published').length;
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 24px' }}>
@@ -320,7 +326,7 @@ export default function AdminProducts() {
             <div key={product.id} style={{
               background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '16px 20px',
               display: 'flex', gap: 16, alignItems: 'center',
-              opacity: product.active ? 1 : 0.6, transition: 'all .2s',
+              opacity: product.status === 'published' ? 1 : 0.6, transition: 'all .2s',
               boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
             }}>
               {/* Image */}
@@ -331,8 +337,8 @@ export default function AdminProducts() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontWeight: 700, fontSize: 15 }}>{product.title}</span>
-                  {!product.active && <span style={{ background: '#fee2e2', color: '#991b1b', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>Inactive</span>}
-                  {product.featured && product.active && <span style={{ background: '#fef9c3', color: '#854d0e', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>⭐ Featured</span>}
+                  {product.status === 'draft' && <span style={{ background: '#fee2e2', color: '#991b1b', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>Draft</span>}
+                  {product.featured && product.status === 'published' && <span style={{ background: '#fef9c3', color: '#854d0e', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>⭐ Featured</span>}
                   {safeArr(product.priorityTags).slice(0, 1).map(t => (
                     <span key={t} style={{ background: '#f0fdf4', color: '#166534', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, border: '1px solid #86efac' }}>{t}</span>
                   ))}
@@ -344,14 +350,14 @@ export default function AdminProducts() {
 
               {/* Actions */}
               <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                <button onClick={() => handleToggleActive(product)} title={product.active ? 'Deactivate' : 'Activate'}
+                <button onClick={() => handleToggleStatus(product)} title={product.status === 'published' ? 'Draft' : 'Publish'}
                   style={{ padding: '6px 12px', border: '1px solid #d1d5db', borderRadius: 8, background: '#fff', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  {product.active ? <ToggleRight size={16} color="#166534" /> : <ToggleLeft size={16} color="#9ca3af" />}
-                  {product.active ? 'Active' : 'Inactive'}
+                  {product.status === 'published' ? <ToggleRight size={16} color="#166534" /> : <ToggleLeft size={16} color="#9ca3af" />}
+                  {product.status === 'published' ? 'Published' : 'Draft'}
                 </button>
                 <button onClick={() => handleToggleFeatured(product)} title={product.featured ? 'Unfeature' : 'Feature'}
-                  disabled={!product.active}
-                  style={{ padding: '6px 12px', border: '1px solid #d1d5db', borderRadius: 8, background: product.featured ? '#fef9c3' : '#fff', cursor: product.active ? 'pointer' : 'not-allowed', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  disabled={product.status !== 'published'}
+                  style={{ padding: '6px 12px', border: '1px solid #d1d5db', borderRadius: 8, background: product.featured ? '#fef9c3' : '#fff', cursor: product.status === 'published' ? 'pointer' : 'not-allowed', opacity: product.status === 'published' ? 1 : 0.4, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
                   <Star size={14} fill={product.featured ? '#854d0e' : 'none'} color={product.featured ? '#854d0e' : '#9ca3af'} />
                   {product.featured ? 'Featured' : 'Feature'}
                 </button>

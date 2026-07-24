@@ -38,7 +38,7 @@ export default function Services() {
       }
       if (res.ok) {
         const data = await res.json();
-        setServices(data);
+        setServices(data.services ? data.services : Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error(error);
@@ -66,7 +66,7 @@ export default function Services() {
     else setSearchParams({ category: value });
   };
 
-  const activeFeaturedCount = services.filter(s => s.featured && s.active).length;
+  const activeFeaturedCount = services.filter(s => s.featured && s.status === 'published').length;
 
   const handleSaveService = async (formData) => {
     const toastId = toast.loading('Saving...');
@@ -76,7 +76,7 @@ export default function Services() {
           toast.error('Cannot update product without a valid ID.', { id: toastId });
           return;
         }
-        const res = await apiFetch(`/api/services/${encodeURIComponent(editingServiceId)}`, {
+        const res = await apiFetch(`/api/admin/services/${encodeURIComponent(editingServiceId)}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData)
@@ -84,7 +84,7 @@ export default function Services() {
         if (!res.ok) throw res;
         toast.success('Product updated successfully', { id: toastId });
       } else {
-        const res = await apiFetch('/api/services', {
+        const res = await apiFetch('/api/admin/services', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData)
@@ -115,7 +115,7 @@ export default function Services() {
   const handleDeleteService = async (id) => {
     if (!window.confirm('Are you sure you want to delete this service?')) return;
     try {
-      const res = await apiFetch(`/api/services/${id}`, {
+      const res = await apiFetch(`/api/admin/services/${id}`, {
         method: 'DELETE'
       });
       if (res.ok) {

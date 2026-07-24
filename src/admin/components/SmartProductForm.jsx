@@ -126,7 +126,7 @@ export default function SmartProductForm({ onClose, onSuccess, onOpenEditor }) {
     
     // Step 2: Không bắt buộc
     shortDescription: '',
-    active: true,
+    status: 'draft',
     featured: false,
     description: '',
   });
@@ -207,7 +207,7 @@ export default function SmartProductForm({ onClose, onSuccess, onOpenEditor }) {
     const toastId = toast.loading('Đang tạo sản phẩm...');
     try {
       const payload = buildPayload();
-      const res = await apiFetch('/api/services', {
+      const res = await apiFetch('/api/admin/services', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -219,8 +219,9 @@ export default function SmartProductForm({ onClose, onSuccess, onOpenEditor }) {
       }
       
       const created = await res.json();
+      const newService = created.service || created;
       toast.success('✅ Tạo sản phẩm thành công!', { id: toastId });
-      openEditor && onOpenEditor ? onOpenEditor(created) : onSuccess(created);
+      openEditor && onOpenEditor ? onOpenEditor(newService) : onSuccess(newService);
     } catch (err) {
       if (err.fields) setErrors(err.fields);
       toast.error(err.message || 'Không thể tạo sản phẩm', { id: toastId });
@@ -374,9 +375,9 @@ export default function SmartProductForm({ onClose, onSuccess, onOpenEditor }) {
           <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', marginBottom: 16 }}>
             <input
               type="checkbox"
-              name="active"
-              checked={form.active}
-              onChange={handle}
+              name="status"
+              checked={form.status === 'published'}
+              onChange={(e) => setForm(p => ({ ...p, status: e.target.checked ? 'published' : 'draft', featured: e.target.checked ? p.featured : false }))}
               style={{ width: 24, height: 24, cursor: 'pointer' }}
             />
             <div>
@@ -393,10 +394,10 @@ export default function SmartProductForm({ onClose, onSuccess, onOpenEditor }) {
               name="featured"
               checked={form.featured}
               onChange={handle}
-              disabled={!form.active}
-              style={{ width: 24, height: 24, cursor: form.active ? 'pointer' : 'not-allowed', opacity: form.active ? 1 : 0.4 }}
+              disabled={form.status !== 'published'}
+              style={{ width: 24, height: 24, cursor: form.status === 'published' ? 'pointer' : 'not-allowed', opacity: form.status === 'published' ? 1 : 0.4 }}
             />
-            <div style={{ opacity: form.active ? 1 : 0.5 }}>
+            <div style={{ opacity: form.status === 'published' ? 1 : 0.5 }}>
               <div style={{ fontWeight: 600, fontSize: 16, color: '#1a3a2a' }}>Đưa lên trang chủ (Mục Nổi Bật)</div>
               <div style={{ fontSize: 14, color: '#6b7c74' }}>Giúp khách dễ thấy sản phẩm này nhất</div>
             </div>

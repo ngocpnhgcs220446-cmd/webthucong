@@ -455,7 +455,7 @@ app.post(
 app.get('/api/services', async (req, res) => {
   try {
     const services = await prisma.service.findMany({
-      where: { active: true },
+      where: { status: 'published' },
       orderBy: { sortOrder: 'asc' },
       include: { packages: true, reviews: true }
     });
@@ -476,7 +476,7 @@ app.get('/api/services', async (req, res) => {
       priorityTags: safeJsonParse(s.priorityTags),
       timeSlots: safeJsonParse(s.timeSlots)
     }));
-    res.json(formattedServices);
+    res.json({ success: true, services: formattedServices });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to fetch services' });
@@ -507,9 +507,10 @@ app.get('/api/admin/services', authMiddleware, async (req, res) => {
       priorityTags: safeJsonParse(s.priorityTags),
       timeSlots: safeJsonParse(s.timeSlots)
     }));
-    res.json(formattedServices);
+    res.json({ success: true, services: formattedServices });
   } catch (error) {
     console.error(error);
+    res.status(500).json({ error: 'Failed to fetch services' });
   }
 });
 
@@ -524,11 +525,7 @@ app.get('/api/services/slug/:slug', async (req, res) => {
       where: { slug },
       include: { packages: { where: { active: true }, orderBy: { sortOrder: 'asc' } }, reviews: { where: { active: true }, orderBy: { sortOrder: 'asc' } } }
     });
-    if (!service) return res.status(404).json({ error: 'Not found' });
-
-    if (!service.active && (!req.user || !req.user.role)) {
-      return res.status(404).json({ error: 'Not found' });
-    }
+    if (!service || service.status !== 'published') return res.status(404).json({ error: 'Not found' });
 
     const formattedService = {
       ...service,
@@ -546,7 +543,7 @@ app.get('/api/services/slug/:slug', async (req, res) => {
       priorityTags: safeJsonParse(service.priorityTags),
       timeSlots: safeJsonParse(service.timeSlots)
     };
-    res.json(formattedService);
+    res.json({ success: true, service: formattedService });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to fetch service' });
@@ -554,7 +551,7 @@ app.get('/api/services/slug/:slug', async (req, res) => {
 });
 
 // Create a new service
-app.post('/api/services', authMiddleware, async (req, res) => {
+app.post('/api/admin/services', authMiddleware, async (req, res) => {
   try {
     const data = req.body;
     const errors = {};
@@ -577,9 +574,9 @@ app.post('/api/services', authMiddleware, async (req, res) => {
     }
 
     let isFeatured = data.featured || false;
-    let isActive = data.active !== undefined ? data.active : true;
+    let status = data.status || 'draft';
 
-    if (!isActive) {
+    if (status !== 'published') {
       isFeatured = false;
     }
 
@@ -610,7 +607,7 @@ app.post('/api/services', authMiddleware, async (req, res) => {
         includes: ensureJsonString(data.includes),
         suitableFor: ensureJsonString(data.suitableFor),
         featured: isFeatured,
-        active: isActive,
+        status: status,
         sortOrder: data.sortOrder ? parseInt(data.sortOrder) : 0,
         minGuests: data.minGuests ? parseInt(data.minGuests) : null,
         maxGuests: data.maxGuests ? parseInt(data.maxGuests) : null,
@@ -668,7 +665,7 @@ app.post('/api/services', authMiddleware, async (req, res) => {
       }
     }
 
-    res.status(201).json(newService);
+    res.status(201).json({ success: true, service: newService });
   } catch (error) {
     if (error?.code === 'P2025') {
       return res.status(404).json({ error: 'Service not found.' });
@@ -679,15 +676,10 @@ app.post('/api/services', authMiddleware, async (req, res) => {
 });
 
 // Update a service
-app.put('/api/services/:id', authMiddleware, async (req, res) => {
+app.put('/api/admin/services/:id', authMiddleware, async (req, res) => {
   try {
     const id = String(req.params.id || '').trim();
     const data = req.body;
-
-    console.log('[Service Update] Request:', {
-      id,
-      bodyKeys: Object.keys(data || {}),
-    });
 
     if (!id || id === 'undefined' || id === 'null') {
       return res.status(400).json({ error: 'A valid service ID is required.' });
@@ -724,15 +716,15 @@ app.put('/api/services/:id', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Validation failed', fields: { maxGuests: 'maxGuests must be >= minGuests' } });
     }
 
-    let isFeatured = data.featured;
-    let isActive = data.active;
-    if (isActive === false) {
+    let isFeatured = data.featured !== undefined ? data.featured : existingService.featured;
+    let status = data.status !== undefined ? data.status : existingService.status;
+    if (status !== 'published') {
       isFeatured = false;
     }
 
     if (isFeatured) {
       const count = await prisma.service.count({
-        where: { featured: true, active: true, id: { not: id } }
+        where: { featured: true, status: 'published', id: { not: id } }
       });
       if (count >= 4) {
         return res.status(400).json({ error: 'Home can only have 4 featured workshops.', fields: { featured: 'Unfeature another workshop first.' } });
@@ -742,56 +734,52 @@ app.put('/api/services/:id', authMiddleware, async (req, res) => {
     const updatedService = await prisma.service.update({
       where: { id },
       data: {
-        slug: data.slug,
-        category: data.category,
-        title: data.title,
-        subtitle: data.subtitle,
-        price: data.price,
-        duration: data.duration,
-        groupSize: data.groupSize,
-        location: data.location,
-        imageUrl: data.imageUrl,
-        imagePublicId: data.imagePublicId,
-        gallery: ensureJsonString(data.gallery || []),
-        highlights: ensureJsonString(data.highlights || []),
-        description: data.description,
-        includes: ensureJsonString(data.includes || []),
-        suitableFor: ensureJsonString(data.suitableFor || []),
+        slug: data.slug || existingService.slug,
+        category: data.category || existingService.category,
+        title: data.title || existingService.title,
+        subtitle: data.subtitle || existingService.subtitle,
+        price: data.price || existingService.price,
+        duration: data.duration || existingService.duration,
+        groupSize: data.groupSize || existingService.groupSize,
+        location: data.location || existingService.location,
+        imageUrl: data.imageUrl !== undefined ? data.imageUrl : existingService.imageUrl,
+        imagePublicId: data.imagePublicId !== undefined ? data.imagePublicId : existingService.imagePublicId,
+        gallery: data.gallery !== undefined ? ensureJsonString(data.gallery) : existingService.gallery,
+        highlights: data.highlights !== undefined ? ensureJsonString(data.highlights) : existingService.highlights,
+        description: data.description !== undefined ? data.description : existingService.description,
+        includes: data.includes !== undefined ? ensureJsonString(data.includes) : existingService.includes,
+        suitableFor: data.suitableFor !== undefined ? ensureJsonString(data.suitableFor) : existingService.suitableFor,
         featured: isFeatured,
-        active: isActive,
-        sortOrder: data.sortOrder !== undefined ? parseInt(data.sortOrder) : undefined,
-        minGuests: data.minGuests !== undefined ? (data.minGuests ? parseInt(data.minGuests) : null) : undefined,
-        maxGuests: data.maxGuests !== undefined ? (data.maxGuests ? parseInt(data.maxGuests) : null) : undefined,
-        defaultEstimatedPrice: data.defaultEstimatedPrice !== undefined ? (data.defaultEstimatedPrice ? parseFloat(data.defaultEstimatedPrice) : null) : undefined,
-        // Extended fields
-        groupName: data.groupName,
-        shortDescription: data.shortDescription,
-        fullDescription: data.fullDescription,
-        freeCancellation: data.freeCancellation,
-        cancellationPolicy: data.cancellationPolicy,
-        reserveNowPayLater: data.reserveNowPayLater,
-        reservePolicy: data.reservePolicy,
-        availabilityNote: data.availabilityNote,
-        instructorDescription: data.instructorDescription,
-        languages: ensureJsonString(data.languages || []),
-        wheelchairAccessible: data.wheelchairAccessible,
-        smallGroup: data.smallGroup,
-        groupLimit: data.groupLimit !== undefined ? (data.groupLimit ? parseInt(data.groupLimit) : null) : undefined,
-
-        excludes: ensureJsonString(data.excludes || []),
-        notAllowed: ensureJsonString(data.notAllowed || []),
-        whatToBring: ensureJsonString(data.whatToBring || []),
-        knowBeforeYouGo: ensureJsonString(data.knowBeforeYouGo || []),
-
-        meetingPointTitle: data.meetingPointTitle,
-        meetingPointDescription: data.meetingPointDescription,
-        googleMapsUrl: data.googleMapsUrl,
-        mapEmbed: data.mapEmbed,
-
-        experienceTags: ensureJsonString(data.experienceTags || []),
-        bookingTags: ensureJsonString(data.bookingTags || []),
-        priorityTags: ensureJsonString(data.priorityTags || []),
-        timeSlots: ensureJsonString(data.timeSlots || [])
+        status: status,
+        sortOrder: data.sortOrder !== undefined ? parseInt(data.sortOrder) : existingService.sortOrder,
+        minGuests: data.minGuests !== undefined ? (data.minGuests ? parseInt(data.minGuests) : null) : existingService.minGuests,
+        maxGuests: data.maxGuests !== undefined ? (data.maxGuests ? parseInt(data.maxGuests) : null) : existingService.maxGuests,
+        defaultEstimatedPrice: data.defaultEstimatedPrice !== undefined ? (data.defaultEstimatedPrice ? parseFloat(data.defaultEstimatedPrice) : null) : existingService.defaultEstimatedPrice,
+        groupName: data.groupName !== undefined ? data.groupName : existingService.groupName,
+        shortDescription: data.shortDescription !== undefined ? data.shortDescription : existingService.shortDescription,
+        fullDescription: data.fullDescription !== undefined ? data.fullDescription : existingService.fullDescription,
+        freeCancellation: data.freeCancellation !== undefined ? data.freeCancellation : existingService.freeCancellation,
+        cancellationPolicy: data.cancellationPolicy !== undefined ? data.cancellationPolicy : existingService.cancellationPolicy,
+        reserveNowPayLater: data.reserveNowPayLater !== undefined ? data.reserveNowPayLater : existingService.reserveNowPayLater,
+        reservePolicy: data.reservePolicy !== undefined ? data.reservePolicy : existingService.reservePolicy,
+        availabilityNote: data.availabilityNote !== undefined ? data.availabilityNote : existingService.availabilityNote,
+        instructorDescription: data.instructorDescription !== undefined ? data.instructorDescription : existingService.instructorDescription,
+        languages: data.languages !== undefined ? ensureJsonString(data.languages) : existingService.languages,
+        wheelchairAccessible: data.wheelchairAccessible !== undefined ? data.wheelchairAccessible : existingService.wheelchairAccessible,
+        smallGroup: data.smallGroup !== undefined ? data.smallGroup : existingService.smallGroup,
+        groupLimit: data.groupLimit !== undefined ? (data.groupLimit ? parseInt(data.groupLimit) : null) : existingService.groupLimit,
+        excludes: data.excludes !== undefined ? ensureJsonString(data.excludes) : existingService.excludes,
+        notAllowed: data.notAllowed !== undefined ? ensureJsonString(data.notAllowed) : existingService.notAllowed,
+        whatToBring: data.whatToBring !== undefined ? ensureJsonString(data.whatToBring) : existingService.whatToBring,
+        knowBeforeYouGo: data.knowBeforeYouGo !== undefined ? ensureJsonString(data.knowBeforeYouGo) : existingService.knowBeforeYouGo,
+        meetingPointTitle: data.meetingPointTitle !== undefined ? data.meetingPointTitle : existingService.meetingPointTitle,
+        meetingPointDescription: data.meetingPointDescription !== undefined ? data.meetingPointDescription : existingService.meetingPointDescription,
+        googleMapsUrl: data.googleMapsUrl !== undefined ? data.googleMapsUrl : existingService.googleMapsUrl,
+        mapEmbed: data.mapEmbed !== undefined ? data.mapEmbed : existingService.mapEmbed,
+        experienceTags: data.experienceTags !== undefined ? ensureJsonString(data.experienceTags) : existingService.experienceTags,
+        bookingTags: data.bookingTags !== undefined ? ensureJsonString(data.bookingTags) : existingService.bookingTags,
+        priorityTags: data.priorityTags !== undefined ? ensureJsonString(data.priorityTags) : existingService.priorityTags,
+        timeSlots: data.timeSlots !== undefined ? ensureJsonString(data.timeSlots) : existingService.timeSlots
       }
     });
 
@@ -840,7 +828,6 @@ app.put('/api/services/:id', authMiddleware, async (req, res) => {
       }
     }
 
-    // Parse JSON arrays before sending back
     const response = {
       ...updatedService,
       gallery: safeJsonParse(updatedService.gallery),
@@ -857,7 +844,7 @@ app.put('/api/services/:id', authMiddleware, async (req, res) => {
       priorityTags: safeJsonParse(updatedService.priorityTags),
       timeSlots: safeJsonParse(updatedService.timeSlots)
     };
-    res.json(response);
+    res.json({ success: true, service: response });
   } catch (error) {
     if (error?.code === 'P2025') {
       return res.status(404).json({ error: 'Service not found.' });
@@ -867,8 +854,8 @@ app.put('/api/services/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Delete a service
-app.delete('/api/services/:id', authMiddleware, async (req, res) => {
+// Delete a service (Soft Delete)
+app.delete('/api/admin/services/:id', authMiddleware, async (req, res) => {
   try {
     const id = String(req.params.id || '').trim();
 
@@ -888,8 +875,13 @@ app.delete('/api/services/:id', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Service not found.' });
     }
 
-    await prisma.service.delete({ where: { id } });
-    res.status(204).send();
+    // Instead of hard deleting, we archive it
+    await prisma.service.update({
+      where: { id },
+      data: { status: 'archived', featured: false }
+    });
+
+    res.json({ success: true, deletedId: id });
   } catch (error) {
     if (error?.code === 'P2025') {
       return res.status(404).json({ error: 'Service not found.' });

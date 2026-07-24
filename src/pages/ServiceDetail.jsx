@@ -20,7 +20,7 @@ export default function ServiceDetail() {
     fetch(`/api/services/slug/${slug}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        setService(data);
+        setService(data?.service ? data.service : data);
         setLoading(false);
       })
       .catch(e => {

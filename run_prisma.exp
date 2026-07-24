@@ -1,0 +1,9 @@
+#!/usr/bin/expect -f
+set timeout -1
+spawn npx prisma migrate dev --name standardize_service_status
+expect {
+  "still contains 5 non-null values" { send "y\r"; exp_continue }
+  "data will be lost" { send "y\r"; exp_continue }
+  "Are you sure" { send "y\r"; exp_continue }
+  eof
+}

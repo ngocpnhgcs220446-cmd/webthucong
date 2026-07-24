@@ -121,7 +121,7 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
       title: '', slug: '', subtitle: '', description: '',
       price: '', duration: '', groupSize: '', location: '',
       category: PRODUCT_CATEGORIES[0].key, imageUrl: '', imagePublicId: '', featured: false,
-      active: true, sortOrder: 0, minGuests: '', maxGuests: '', defaultEstimatedPrice: '',
+      status: 'draft', sortOrder: 0, minGuests: '', maxGuests: '', defaultEstimatedPrice: '',
       groupName: '', shortDescription: '', fullDescription: '',
       freeCancellation: true, cancellationPolicy: '', reserveNowPayLater: true, reservePolicy: '',
       availabilityNote: '', instructorDescription: '', languages: [], wheelchairAccessible: false,
@@ -407,11 +407,11 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
             <SectionGroup title="Visibility & Ordering" description="Control where and how this product appears on the storefront.">
               <div style={{ display: 'flex', gap: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px', color: '#334155' }}>
-                  <input type="checkbox" name="active" checked={formData.active} onChange={handleChange} style={{ width: '18px', height: '18px' }} />
+                  <input type="checkbox" name="status" checked={formData.status === 'published'} onChange={(e) => setFormData(p => ({ ...p, status: e.target.checked ? 'published' : 'draft', featured: e.target.checked ? p.featured : false }))} style={{ width: '18px', height: '18px' }} />
                   Active / Published
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px', color: '#334155' }}>
-                  <input type="checkbox" name="featured" checked={formData.featured} onChange={handleChange} disabled={!formData.active} style={{ width: '18px', height: '18px' }} />
+                  <input type="checkbox" name="featured" checked={formData.featured} onChange={handleChange} disabled={formData.status !== 'published'} style={{ width: '18px', height: '18px', opacity: formData.status === 'published' ? 1 : 0.5 }} />
                   Featured on Home
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, fontSize: '14px', color: '#334155' }}>

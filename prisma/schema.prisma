@@ -29,7 +29,7 @@ model Service {
   includes              String // Stored as JSON string
   suitableFor           String // Stored as JSON string
   featured              Boolean @default(false)
-  active                Boolean @default(true)
+  status                String  @default("draft")
   sortOrder             Int     @default(0)
   minGuests             Int?
   maxGuests             Int?

@@ -42,7 +42,7 @@ export default function Home() {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    fetch('/api/services').then(r => r.json()).then(setServices).catch(console.error);
+    fetch('/api/services').then(r => r.json()).then(data => setServices(data?.services ? data.services : Array.isArray(data) ? data : [])).catch(console.error);
     if (settings.homeSections) setHomeSections(JSON.parse(settings.homeSections));
     if (settings.hiddenSections) setHiddenSections(JSON.parse(settings.hiddenSections));
     if (settings.galleryImages) setGalleryImages(JSON.parse(settings.galleryImages));
