@@ -34,11 +34,8 @@ export default function AdminImageUploader({ currentImage, onUpload, value, onCh
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        // Return object containing both URL and publicId instead of just a string URL
-        handleChange({ 
-          imageUrl: data.image.imageUrl, 
-          imagePublicId: data.image.publicId 
-        });
+        // Pass string URL as first arg for backward compatibility, and the full object as second arg
+        handleChange(data.image.imageUrl, data.image);
         toast.success('Image uploaded');
       } else {
         toast.error(data.error || 'Upload failed');

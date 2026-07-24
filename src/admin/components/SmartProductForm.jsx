@@ -284,9 +284,9 @@ export default function SmartProductForm({ onClose, onSuccess, onOpenEditor }) {
             </p>
             <AdminImageUploader
               value={form.imageUrl}
-              onChange={(img) => {
-                set('imageUrl', img.imageUrl);
-                setForm(p => ({ ...p, imagePublicId: img.imagePublicId }));
+              onChange={(url, img) => {
+                set('imageUrl', url);
+                setForm(p => ({ ...p, imagePublicId: img?.publicId || '' }));
               }}
             />
           </div>
@@ -304,9 +304,9 @@ export default function SmartProductForm({ onClose, onSuccess, onOpenEditor }) {
             >
               <AdminImageUploader
                 value={form.imageUrl}
-                onChange={(img) => {
-                  set('imageUrl', img.imageUrl);
-                  setForm(p => ({ ...p, imagePublicId: img.imagePublicId }));
+                onChange={(url, img) => {
+                  set('imageUrl', url);
+                  setForm(p => ({ ...p, imagePublicId: img?.publicId || '' }));
                 }}
               />
             </div>

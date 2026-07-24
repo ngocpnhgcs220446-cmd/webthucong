@@ -14,3 +14,4 @@ createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 );
 console.log('App loaded: v2');
+console.log('App loaded: v3');
