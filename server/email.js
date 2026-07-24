@@ -46,10 +46,14 @@ const getTransporter = () => {
 
   if (!transporter) {
     const port = Number(process.env.SMTP_PORT);
+    const secureConfig = process.env.SMTP_SECURE 
+      ? String(process.env.SMTP_SECURE).toLowerCase() === 'true'
+      : port === 465;
+      
     transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: port,
-      secure: port === 465,
+      secure: secureConfig,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
@@ -102,12 +106,12 @@ export const sendAdminLeadNotification = async (lead) => {
   const mailer = getTransporter();
   if (!mailer) {
     console.log(`[Email Simulation] Admin Notification skipped for ${lead.referenceCode}`);
-    return 'skipped';
+    return { sent: false, reason: 'smtp-not-configured' };
   }
 
-  let adminEmail = process.env.ADMIN_NOTIFY_EMAIL;
+  let adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || process.env.ADMIN_NOTIFY_EMAIL;
   if (!adminEmail) {
-    console.warn('ADMIN_NOTIFY_EMAIL is missing. Fallback to SMTP_USER');
+    console.warn('ADMIN_NOTIFICATION_EMAIL is missing. Fallback to SMTP_USER');
     adminEmail = process.env.SMTP_USER;
   }
 
@@ -182,7 +186,7 @@ This is an automated notification.
   `, companyName);
 
   try {
-    await mailer.sendMail({
+    const info = await mailer.sendMail({
       from: process.env.SMTP_FROM || 'no-reply@example.com',
       to: adminEmail,
       replyTo: lead.email,
@@ -190,7 +194,7 @@ This is an automated notification.
       text: textContent,
       html: htmlContent
     });
-    return 'sent';
+    return { sent: true, messageId: info.messageId, accepted: info.accepted, rejected: info.rejected };
   } catch (error) {
     console.error(`[Email Error] Failed to send Admin Notification for ${lead.referenceCode}:`, error);
     throw error;
@@ -201,11 +205,11 @@ export const sendCustomerLeadConfirmation = async (lead) => {
   const mailer = getTransporter();
   if (!mailer) {
     console.log(`[Email Simulation] Customer Confirmation skipped for ${lead.referenceCode}`);
-    return 'skipped';
+    return { sent: false, reason: 'smtp-not-configured' };
   }
 
   let replyToEmail = process.env.COMPANY_SUPPORT_EMAIL;
-  if (!replyToEmail) replyToEmail = process.env.ADMIN_NOTIFY_EMAIL;
+  if (!replyToEmail) replyToEmail = process.env.ADMIN_NOTIFICATION_EMAIL || process.env.ADMIN_NOTIFY_EMAIL;
   if (!replyToEmail) replyToEmail = process.env.SMTP_USER;
 
   const companyName = process.env.COMPANY_NAME || 'Experience Platform';
@@ -285,7 +289,7 @@ ${companyPhone ? `Phone: ${companyPhone}` : ''}
   `, companyName);
 
   try {
-    await mailer.sendMail({
+    const info = await mailer.sendMail({
       from: process.env.SMTP_FROM || 'no-reply@example.com',
       to: lead.email,
       replyTo: replyToEmail,
@@ -293,7 +297,7 @@ ${companyPhone ? `Phone: ${companyPhone}` : ''}
       text: textContent,
       html: htmlContent
     });
-    return 'sent';
+    return { sent: true, messageId: info.messageId, accepted: info.accepted, rejected: info.rejected };
   } catch (error) {
     console.error(`[Email Error] Failed to send Customer Confirmation for ${lead.referenceCode}:`, error);
     throw error;

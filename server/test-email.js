@@ -1,54 +1,61 @@
+import dotenv from 'dotenv';
 import nodemailer from 'nodemailer';
-import 'dotenv/config';
 
-async function testSMTP() {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT);
-  const secure = String(process.env.SMTP_SECURE).toLowerCase() === 'true';
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || user;
+dotenv.config();
 
-  if (!host || !user || !pass) {
-    console.error('[SMTP Test] Missing required environment variables (SMTP_HOST, SMTP_USER, SMTP_PASS)');
-    process.exit(1);
-  }
+const smtpConfigured = Boolean(process.env.SMTP_HOST) && Boolean(process.env.SMTP_PORT) && Boolean(process.env.SMTP_USER) && Boolean(process.env.SMTP_PASS) && Boolean(process.env.SMTP_FROM);
 
-  console.log('[SMTP Test] Testing connection to', host, 'on port', port);
+console.log('[SMTP] Configuration:', {
+  hostConfigured: Boolean(process.env.SMTP_HOST),
+  portConfigured: Boolean(process.env.SMTP_PORT),
+  userConfigured: Boolean(process.env.SMTP_USER),
+  passConfigured: Boolean(process.env.SMTP_PASS),
+  fromConfigured: Boolean(process.env.SMTP_FROM),
+  adminEmailConfigured: Boolean(process.env.ADMIN_NOTIFICATION_EMAIL || process.env.ADMIN_NOTIFY_EMAIL),
+});
 
-  const transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: { user, pass }
-  });
+if (!smtpConfigured) {
+  console.log('Missing SMTP variables, aborting test.');
+  process.exit(1);
+}
 
+const port = Number(process.env.SMTP_PORT);
+const secureConfig = process.env.SMTP_SECURE ? String(process.env.SMTP_SECURE).toLowerCase() === 'true' : port === 465;
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: port,
+  secure: secureConfig,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+async function runTest() {
   try {
     await transporter.verify();
-    console.log('[SMTP Test] Connection verified successfully!');
-  } catch (err) {
-    console.error('[SMTP Test] Verification failed:');
-    console.error(err.message);
-    console.error('If you are using Gmail, ensure you have 2-Step Verification enabled and are using an App Password, not your regular password.');
-    process.exit(1);
-  }
-
-  try {
-    console.log('[SMTP Test] Attempting to send a test email to', user);
+    console.log('[SMTP] Connection verified. verify success');
+    
+    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || process.env.ADMIN_NOTIFY_EMAIL || process.env.SMTP_USER;
+    
     const info = await transporter.sendMail({
-      from,
-      to: user,
-      subject: 'SMTP Diagnostic Test - Experience Platform',
-      text: 'If you are reading this, your SMTP connection is fully working.'
+      from: process.env.SMTP_FROM,
+      to: adminEmail,
+      subject: 'Test Email from Conical Hat Workshop',
+      text: 'This is a test email.',
     });
-    console.log('[SMTP Test] Email sent successfully!');
-    console.log('Message ID:', info.messageId);
-    console.log('Accepted:', info.accepted);
-    console.log('Rejected:', info.rejected);
-  } catch (err) {
-    console.error('[SMTP Test] Failed to send email:');
-    console.error(err.message);
+    
+    console.log('accepted:', info.accepted);
+    console.log('rejected:', info.rejected);
+    console.log('messageId:', info.messageId);
+    
+  } catch (error) {
+    console.error('[SMTP] Verification failed:', {
+      code: error?.code || null,
+      message: error?.message || null,
+    });
   }
 }
 
-testSMTP();
+runTest();

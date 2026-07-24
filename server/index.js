@@ -1245,34 +1245,31 @@ app.post('/api/leads', leadLimiter, async (req, res, next) => {
       sendCustomerLeadConfirmation(newLead)
     ]);
 
-    const adminNotificationStatus = adminResult.status === 'fulfilled' ? adminResult.value : 'failed';
-    const customerConfirmationStatus = customerResult.status === 'fulfilled' ? customerResult.value : 'failed';
-
-    if (adminResult.status === 'rejected') {
-      console.error('[Email Error] Admin notification failed:', adminResult.reason);
+    function normalizeEmailResult(result) {
+      if (result.status === 'fulfilled') {
+        return typeof result.value === 'object' ? result.value : { sent: false, reason: result.value };
+      }
+      return {
+        sent: false,
+        reason: result.reason?.code || result.reason?.message || 'email-send-failed',
+      };
     }
-    if (customerResult.status === 'rejected') {
-      console.error('[Email Error] Customer confirmation failed:', customerResult.reason);
-    }
 
-    const warning = (adminNotificationStatus === 'failed' || customerConfirmationStatus === 'failed') 
-      ? 'Your enquiry was saved, but email delivery could not be confirmed.' 
-      : undefined;
+    const adminEmail = normalizeEmailResult(adminResult);
+    const customerEmail = normalizeEmailResult(customerResult);
+
+    const warning = (adminEmail.sent && customerEmail.sent) 
+      ? undefined 
+      : 'Your enquiry was saved, but email delivery could not be fully confirmed.';
 
     res.status(201).json({
       success: true,
-      message: 'Registration submitted successfully',
+      leadId: newLead.id,
+      requestId: newLead.referenceCode,
       warning,
-      lead: {
-        id: newLead.id,
-        referenceCode: newLead.referenceCode,
-        name: newLead.name,
-        email: newLead.email,
-        serviceNameSnapshot: newLead.serviceNameSnapshot
-      },
       email: {
-        adminNotification: adminNotificationStatus,
-        customerConfirmation: customerConfirmationStatus
+        adminNotificationSent: adminEmail.sent === true,
+        customerConfirmationSent: customerEmail.sent === true,
       }
     });
   } catch (error) {
