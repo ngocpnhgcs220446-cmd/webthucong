@@ -1,4 +1,9 @@
-import { useState, useEffect } from 'react';
+import re
+
+with open("src/pages/Contact.jsx", "r") as f:
+    text = f.read()
+
+new_contact = """import { useState, useEffect } from 'react';
 import { Mail, MapPin, MessageCircle, Phone, Clock, ExternalLink, Link2, Share2, User, CalendarDays, Users, Tag, ArrowRight, ChevronDown, CheckCircle2, AlertTriangle, RefreshCw } from 'lucide-react';
 import SEO from '../components/SEO';
 import PageTransition from '../components/PageTransition';
@@ -128,7 +133,7 @@ export default function Contact() {
   const update = (event) => {
     let { name, value } = event.target;
     if (name === 'phone') value = value.replace(/\D/g, '').slice(0, 15);
-    if (name === 'name') value = value.replace(/[<>\{\}\[\]@#]/g, '');
+    if (name === 'name') value = value.replace(/[<>\\{\\}\\[\\]@#]/g, '');
 
     setForm((prev) => ({ ...prev, [name]: value }));
     setErrors((prev) => ({ ...prev, [name]: null }));
@@ -139,7 +144,7 @@ export default function Contact() {
     if (!form.name.trim()) newErrors.name = 'Please enter your name.';
     if (!form.email.trim()) {
       newErrors.email = 'Please enter your email.';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+    } else if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(form.email)) {
       newErrors.email = 'Please enter a valid email address.';
     }
     return newErrors;
@@ -484,7 +489,7 @@ export default function Contact() {
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      <ContactCard icon={Phone} label="Call Us Anytime" value={phone} href={phone ? `tel:${phone.replace(/\s/g, '')}` : null} actionLabel={phone} />
+                      <ContactCard icon={Phone} label="Call Us Anytime" value={phone} href={phone ? `tel:${phone.replace(/\\s/g, '')}` : null} actionLabel={phone} />
                       <ContactCard icon={Mail} label="Email Address" value={email} href={email ? `mailto:${email}` : null} actionLabel={email} />
                       <ContactCard icon={MapPin} label="Our Location" value={address} />
                       {hasValue(workingHours) && (
@@ -536,3 +541,8 @@ export default function Contact() {
     </PageTransition>
   );
 }
+"""
+
+with open("src/pages/Contact.jsx", "w") as f:
+    f.write(new_contact)
+print("Contact.jsx rewritten successfully.")
