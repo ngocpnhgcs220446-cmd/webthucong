@@ -13,6 +13,7 @@ import ServiceDetail from './pages/ServiceDetail';
 import Contact from './pages/Contact';
 import Login from './pages/Login';
 import NotFound from './pages/NotFound';
+import ErrorBoundary from './components/ErrorBoundary';
 import { Suspense, lazy } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { initAnalytics, trackEvent } from './utils/analytics';
@@ -79,7 +80,7 @@ export default function App() {
               <Route path="/about" element={<About />} />
               <Route path="/services" element={<Services />} />
               <Route path="/services/:slug" element={<ServiceDetail />} />
-              <Route path="/contact" element={<Contact />} />
+              <Route path="/contact" element={<ErrorBoundary><Contact /></ErrorBoundary>} />
               <Route path="/login" element={<Login />} />
               <Route path="/admin/login" element={<Navigate to="/login" replace />} />
               <Route path="*" element={<NotFound />} />

@@ -101,7 +101,7 @@ function escapeHtml(value) {
 // Helper: Build HTML for Customer Confirmation
 function buildCustomerConfirmationHtml(context) {
   const customerName = escapeHtml(context.customerName);
-  const requestId = escapeHtml(context.requestId);
+  const referenceCode = escapeHtml(context.referenceCode);
   const serviceTitle = escapeHtml(context.serviceTitle);
   const customerMessage = escapeHtml(context.customerMessage).replaceAll('\n', '<br />');
 
@@ -125,7 +125,7 @@ function buildCustomerConfirmationHtml(context) {
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin: 24px 0; background: #f8f5f1; border-radius: 8px;">
                       <tr>
                         <td style="padding: 16px;">
-                          <strong>Reference:</strong> ${requestId}<br /><br />
+                          <strong>Reference:</strong> ${referenceCode}<br /><br />
                           <strong>Product:</strong> ${serviceTitle}
                         </td>
                       </tr>
@@ -152,7 +152,7 @@ function buildAdminNotificationHtml(context) {
   const customerName = escapeHtml(context.customerName);
   const customerEmail = escapeHtml(context.customerEmail);
   const customerPhone = escapeHtml(context.customerPhone);
-  const requestId = escapeHtml(context.requestId);
+  const referenceCode = escapeHtml(context.referenceCode);
   const serviceTitle = escapeHtml(context.serviceTitle);
   const customerMessage = escapeHtml(context.customerMessage).replaceAll('\n', '<br />');
 
@@ -174,7 +174,7 @@ function buildAdminNotificationHtml(context) {
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin: 24px 0; background: #f8f5f1; border-radius: 8px;">
                       <tr>
                         <td style="padding: 16px;">
-                          <strong>Reference:</strong> ${requestId}<br /><br />
+                          <strong>Reference:</strong> ${referenceCode}<br /><br />
                           <strong>Name:</strong> ${customerName}<br />
                           <strong>Email:</strong> ${customerEmail}<br />
                           <strong>Phone:</strong> ${customerPhone}<br />
@@ -211,7 +211,7 @@ export async function sendAdminLeadNotification(context) {
       text: [
         'A new enquiry was submitted.',
         '',
-        `Reference: ${context.requestId}`,
+        `Reference: ${context.referenceCode}`,
         `Name: ${context.customerName}`,
         `Email: ${context.customerEmail}`,
         `Phone: ${context.customerPhone}`,
@@ -227,7 +227,7 @@ export async function sendAdminLeadNotification(context) {
 
     if (result.error) {
       console.error('[Email] Admin notification failed:', {
-        requestId: context.requestId,
+        referenceCode: context.referenceCode,
         provider: 'resend',
         errorName: result.error.name || null,
         errorMessage: result.error.message || null,
@@ -236,7 +236,7 @@ export async function sendAdminLeadNotification(context) {
     }
 
     console.log('[Email] Admin notification sent:', {
-      requestId: context.requestId,
+      referenceCode: context.referenceCode,
       provider: 'resend',
       emailId: result.data?.id || null,
     });
@@ -256,7 +256,7 @@ export async function sendAdminLeadNotification(context) {
       text: [
         'A new enquiry was submitted.',
         '',
-        `Reference: ${context.requestId}`,
+        `Reference: ${context.referenceCode}`,
         `Name: ${context.customerName}`,
         `Email: ${context.customerEmail}`,
         `Phone: ${context.customerPhone}`,
@@ -272,7 +272,7 @@ export async function sendAdminLeadNotification(context) {
 
     const sent = Array.isArray(info.accepted) && info.accepted.length > 0;
     console.log('[Email] Admin notification sent:', {
-      requestId: context.requestId,
+      referenceCode: context.referenceCode,
       provider: 'smtp',
       acceptedCount: info.accepted?.length || 0,
       rejectedCount: info.rejected?.length || 0,
@@ -280,7 +280,7 @@ export async function sendAdminLeadNotification(context) {
     });
     return { sent, provider: 'smtp', messageId: info.messageId || null, accepted: info.accepted || [], rejected: info.rejected || [] };
   } catch (error) {
-    console.error(`[Email Error] Failed to send Admin Notification for ${context.requestId}:`, error);
+    console.error(`[Email Error] Failed to send Admin Notification for ${context.referenceCode}:`, error);
     return { sent: false, reason: 'email-send-failed' };
   }
 }
@@ -294,7 +294,7 @@ export async function sendCustomerLeadConfirmation(context) {
     const result = await resend.emails.send({
       from: emailFrom,
       to: [context.customerEmail],
-      subject: `We received your enquiry — ${context.requestId}`,
+      subject: `We received your enquiry — ${context.referenceCode}`,
       text: [
         `Hello ${context.customerName},`,
         '',
@@ -302,7 +302,7 @@ export async function sendCustomerLeadConfirmation(context) {
         '',
         'Your enquiry has been received successfully.',
         '',
-        `Reference: ${context.requestId}`,
+        `Reference: ${context.referenceCode}`,
         `Product: ${context.serviceTitle}`,
         '',
         'Your message:',
@@ -318,7 +318,7 @@ export async function sendCustomerLeadConfirmation(context) {
 
     if (result.error) {
       console.error('[Email] Customer confirmation failed:', {
-        requestId: context.requestId,
+        referenceCode: context.referenceCode,
         provider: 'resend',
         errorName: result.error.name || null,
         errorMessage: result.error.message || null,
@@ -327,7 +327,7 @@ export async function sendCustomerLeadConfirmation(context) {
     }
 
     console.log('[Email] Customer confirmation sent:', {
-      requestId: context.requestId,
+      referenceCode: context.referenceCode,
       provider: 'resend',
       emailId: result.data?.id || null,
     });
@@ -342,7 +342,7 @@ export async function sendCustomerLeadConfirmation(context) {
     const info = await transporter.sendMail({
       from: smtpFrom,
       to: context.customerEmail,
-      subject: `We received your enquiry — ${context.requestId}`,
+      subject: `We received your enquiry — ${context.referenceCode}`,
       text: [
         `Hello ${context.customerName},`,
         '',
@@ -350,7 +350,7 @@ export async function sendCustomerLeadConfirmation(context) {
         '',
         'We have received your enquiry successfully.',
         '',
-        `Reference: ${context.requestId}`,
+        `Reference: ${context.referenceCode}`,
         `Product: ${context.serviceTitle}`,
         '',
         'Your message:',
@@ -368,7 +368,7 @@ export async function sendCustomerLeadConfirmation(context) {
 
     const sent = Array.isArray(info.accepted) && info.accepted.length > 0;
     console.log('[Email] Customer confirmation sent:', {
-      requestId: context.requestId,
+      referenceCode: context.referenceCode,
       provider: 'smtp',
       acceptedCount: info.accepted?.length || 0,
       rejectedCount: info.rejected?.length || 0,
@@ -376,7 +376,7 @@ export async function sendCustomerLeadConfirmation(context) {
     });
     return { sent, provider: 'smtp', messageId: info.messageId || null, accepted: info.accepted || [], rejected: info.rejected || [] };
   } catch (error) {
-    console.error(`[Email Error] Failed to send Customer Confirmation for ${context.requestId}:`, error);
+    console.error(`[Email Error] Failed to send Customer Confirmation for ${context.referenceCode}:`, error);
     return { sent: false, reason: 'email-send-failed' };
   }
 }

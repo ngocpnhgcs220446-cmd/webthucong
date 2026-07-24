@@ -1259,9 +1259,9 @@ app.post('/api/leads', leadLimiter, async (req, res, next) => {
       ]);
     }
 
-    const requestId = getLeadRequestId(newLead);
+    const referenceCode = getLeadRequestId(newLead);
     const emailContext = {
-      requestId,
+      referenceCode,
       customerName: newLead.name || name,
       customerEmail: newLead.email || email,
       customerPhone: newLead.phone || phone || 'Not provided',
@@ -1291,16 +1291,17 @@ app.post('/api/leads', leadLimiter, async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      leadId: newLead.id,
-      requestId,
+      lead: {
+        id: newLead.id,
+        referenceCode,
+      },
       email: {
-        provider: emailProvider,
         adminNotificationSent: adminEmail.sent === true,
         customerConfirmationSent: customerEmail.sent === true,
       },
       warning: (adminEmail.sent && customerEmail.sent) 
         ? undefined 
-        : 'Your enquiry was saved, but one or more emails could not be confirmed.',
+        : 'The enquiry was saved, but one or more emails could not be delivered.',
     });
   } catch (error) {
     console.error('[Lead Submit] Failed:', {

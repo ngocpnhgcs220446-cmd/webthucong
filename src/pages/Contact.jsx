@@ -198,9 +198,27 @@ export default function Contact() {
         body: payload
       });
       
+      const responseData = data;
+      const savedLead = responseData?.lead;
+      const referenceCode = savedLead?.referenceCode || responseData?.referenceCode || responseData?.requestId || responseData?.leadId || null;
+
+      if (!responseData?.success) {
+        throw new Error(responseData?.error || 'The request could not be saved.');
+      }
+
       trackEvent('contact_form_submit', { service: sName });
-      toast.success('Inquiry submitted successfully!', { id: toastId });
-      setSubmittedData(data);
+      
+      toast.success(
+        referenceCode ? `Mã yêu cầu: ${referenceCode}` : 'Yêu cầu đã được lưu thành công.', 
+        { id: toastId, duration: 5000 }
+      );
+
+      setSubmittedData({
+        id: savedLead?.id || null,
+        referenceCode,
+        warning: responseData?.warning,
+        email: responseData?.email
+      });
       setForm(initialForm);
     } catch (e) {
       console.error('[Lead Submit Failed]', {
@@ -370,9 +388,16 @@ export default function Contact() {
                   </div>
                   <h2 style={{ fontSize: '28px', color: submittedData?.warning ? '#92400e' : '#166534', marginBottom: '16px' }}>{submittedData?.warning ? 'Yêu cầu đã được ghi nhận.' : 'Yêu cầu đã được gửi thành công.'}</h2>
                   
-                  {submittedData?.warning ? (
+                  {submittedData?.referenceCode && (
+                    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'left', border: '1px solid #e2e8f0', color: '#000' }}>
+                      <p style={{ margin: '0 0 8px 0', fontSize: '15px' }}><strong>Mã yêu cầu:</strong> {submittedData.referenceCode}</p>
+                      <p style={{ margin: '0', fontSize: '15px', color: '#475569' }}>Vui lòng lưu lại mã này để tra cứu.</p>
+                    </div>
+                  )}
+
+                  {submittedData?.warning || submittedData?.email?.customerConfirmationSent === false ? (
                     <p style={{ fontSize: '16px', color: '#b45309', lineHeight: 1.6, marginBottom: '32px', maxWidth: '400px', margin: '0 auto 32px' }}>
-                      Hệ thống chưa thể xác nhận việc gửi email.
+                      Hệ thống hiện chưa thể xác nhận việc gửi email. Nhóm của chúng tôi sẽ liên hệ với bạn trong thời gian sớm nhất.
                     </p>
                   ) : (
                     <p style={{ fontSize: '16px', color: '#15803d', lineHeight: 1.6, marginBottom: '32px', maxWidth: '400px', margin: '0 auto 32px' }}>

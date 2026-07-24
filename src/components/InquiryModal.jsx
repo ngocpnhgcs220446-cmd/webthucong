@@ -56,9 +56,27 @@ export default function InquiryModal({ service, selectedPackage, onClose }) {
 
       const data = await submitLeadAPI(payload);
       
+      const responseData = data;
+      const savedLead = responseData?.lead;
+      const referenceCode = savedLead?.referenceCode || responseData?.referenceCode || responseData?.requestId || responseData?.leadId || null;
+
+      if (!responseData?.success) {
+        throw new Error(responseData?.error || 'The request could not be saved.');
+      }
+
       trackEvent('booking_inquiry', { service: service?.title, package: selectedPackage?.name });
-      toast.success('Request submitted successfully!', { id: toastId });
-      setSubmittedData(data);
+      
+      toast.success(
+        referenceCode ? `Mã yêu cầu: ${referenceCode}` : 'Yêu cầu đã được lưu thành công.', 
+        { id: toastId, duration: 5000 }
+      );
+
+      setSubmittedData({
+        id: savedLead?.id || null,
+        referenceCode,
+        warning: responseData?.warning,
+        email: responseData?.email
+      });
     } catch (e) {
       if (e.data && e.data.fields) {
         setErrors(e.data.fields);
@@ -78,26 +96,28 @@ export default function InquiryModal({ service, selectedPackage, onClose }) {
         <button className="modal-close" onClick={onClose} aria-label="Close" disabled={isSubmitting}><X size={22} /></button>
         {submittedData ? (
           <div className="success-state" style={{ textAlign: 'center', padding: '40px 20px' }}>
-            <span className="success-icon" style={{ fontSize: '48px', color: 'var(--green)', display: 'block', marginBottom: '16px' }}>✓</span>
-            <h2>Thank you!</h2>
-            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'left', border: '1px solid #e2e8f0' }}>
-              <p style={{ margin: '0 0 8px 0', fontSize: '15px' }}><strong>Reference Code:</strong> {submittedData.lead.referenceCode}</p>
-              <p style={{ margin: '0', fontSize: '15px', color: '#475569' }}>Please save this reference code.</p>
-            </div>
+            <span className="success-icon" style={{ fontSize: '48px', color: submittedData.warning ? '#d97706' : 'var(--green)', display: 'block', marginBottom: '16px' }}>✓</span>
+            <h2>{submittedData.warning ? 'Yêu cầu đã được ghi nhận' : 'Gửi yêu cầu thành công!'}</h2>
             
-            {submittedData.email?.customerConfirmation === 'failed' ? (
+            {submittedData.referenceCode && (
+              <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'left', border: '1px solid #e2e8f0' }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: '15px' }}><strong>Mã yêu cầu:</strong> {submittedData.referenceCode}</p>
+                <p style={{ margin: '0', fontSize: '15px', color: '#475569' }}>Vui lòng lưu lại mã này để tra cứu.</p>
+              </div>
+            )}
+            
+            {submittedData.warning || submittedData.email?.customerConfirmationSent === false ? (
               <p style={{ color: '#d97706', marginBottom: '24px', backgroundColor: '#fef3c7', padding: '12px', borderRadius: '6px' }}>
-                Your request was received, but we could not send the confirmation email. Please save your reference code and our team will contact you shortly.
+                Yêu cầu đã được ghi nhận nhưng hệ thống hiện chưa thể xác nhận việc gửi email. Nhóm của chúng tôi sẽ liên hệ với bạn trong thời gian sớm nhất.
               </p>
             ) : (
               <p style={{ color: 'var(--text-light)', marginBottom: '24px', lineHeight: '1.6' }}>
-                We have received your booking request.<br />
-                A confirmation email has been sent to your email address.<br /><br />
-                Our team will review your request and contact you shortly.<br />
-                <strong>Your booking is not confirmed until our team contacts you.</strong>
+                Yêu cầu đã được gửi thành công.<br />
+                Email xác nhận đã được gửi đến địa chỉ của bạn.<br /><br />
+                Chúng tôi sẽ xem xét yêu cầu và liên hệ lại với bạn.<br />
               </p>
             )}
-            <button className="btn" onClick={onClose}>Done</button>
+            <button className="btn" onClick={onClose}>Đóng</button>
           </div>
         ) : (
           <>
