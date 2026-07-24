@@ -3,7 +3,6 @@ import toast from 'react-hot-toast';
 import { Plus, Edit2, Trash2, X, Eye, Save, Upload, Star, ToggleLeft, ToggleRight } from 'lucide-react';
 import { apiCall, uploadImage } from '../utils/apiFetch';
 import FullProductEditor from '../admin/components/FullProductEditor';
-import SmartProductForm from '../admin/components/SmartProductForm';
 import {
   PRODUCT_CATEGORIES,
   PRODUCT_COLLECTIONS,
@@ -381,28 +380,12 @@ export default function AdminProducts() {
 
       {/* Modal */}
       {modalOpen && (
-        formMode === 'create' ? (
-          <SmartProductForm
-            onClose={handleCloseForm}
-            onSuccess={() => {
-              fetchProducts();
-              handleCloseForm();
-            }}
-            onOpenEditor={(createdService) => {
-              // Switch to full editor
-              setFormMode('edit');
-              setEditingServiceId(createdService.id);
-              setEditingProduct(createdService);
-            }}
-          />
-        ) : (
-          <FullProductEditor
-            service={editingProduct}
-            mode={formMode}
-            onClose={handleCloseForm}
-            onSave={handleSaveService}
-          />
-        )
+        <FullProductEditor
+          service={editingProduct}
+          mode={formMode}
+          onClose={handleCloseForm}
+          onSave={handleSaveService}
+        />
       )}
     </div>
   );

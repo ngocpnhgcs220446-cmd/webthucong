@@ -41,12 +41,32 @@ function InputField({ label, value, onChange, type = 'text', placeholder = '', f
 
 export default function AdminContact() {
   const { isAdmin } = useAuth();
-  const [settings, setSettings] = useState({});
+  const [settings, setSettings] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
-    fetch('/api/settings').then(r => r.json()).then(setSettings).catch(console.error);
+    loadContactInformation();
   }, []);
+
+  async function loadContactInformation() {
+    setIsLoading(true);
+    setLoadError('');
+
+    try {
+      const response = await fetch('/api/settings');
+      if (!response.ok) throw new Error('Network response was not ok');
+      const data = await response.json();
+      setSettings(data || {});
+    } catch (error) {
+      const message = getApiErrorMessage(error, 'Không thể tải thông tin liên hệ.');
+      setLoadError(message);
+      showToast({ type: 'error', title: 'Không thể tải dữ liệu', message });
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   const handleChange = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -101,9 +121,28 @@ export default function AdminContact() {
           </div>
         </div>
 
-        <div className="admin-card">
-          <form id="contactForm" onSubmit={handleSave}>
-            <div className="admin-form-grid-2col">
+        {isLoading ? (
+          <div style={{ textAlign: 'center', padding: '40px', background: '#fff', borderRadius: 8 }}>
+            <p style={{ color: '#6b7280' }}>Đang tải thông tin liên hệ...</p>
+          </div>
+        ) : loadError ? (
+          <div style={{ textAlign: 'center', padding: '40px', background: '#fff', borderRadius: 8, color: '#b91c1c' }}>
+            <p>{loadError}</p>
+            <button onClick={loadContactInformation} className="admin-btn admin-btn-primary" style={{ marginTop: 16 }}>Thử lại</button>
+          </div>
+        ) : !settings || Object.keys(settings).length === 0 ? (
+           <div style={{ textAlign: 'center', padding: '40px', background: '#fff', borderRadius: 8 }}>
+            <p style={{ color: '#6b7280', marginBottom: 16 }}>Chưa có thông tin liên hệ. Hãy nhập thông tin và bấm Lưu thay đổi.</p>
+            <button onClick={() => setSettings({
+              phone: '', hotline: '', email: '', address: '', workingHours: '',
+              facebookUrl: '', instagramUrl: '', tiktokUrl: '', youtubeUrl: '',
+              zaloUrl: '', whatsappUrl: '', messengerUrl: '', googleMapsUrl: '', mapEmbed: ''
+            })} className="admin-btn admin-btn-primary">Bắt đầu nhập</button>
+          </div>
+        ) : (
+          <div className="admin-card">
+            <form id="contactForm" onSubmit={handleSaveAll}>
+              <div className="admin-form-grid-2col">
 
               {/* LEFT COLUMN */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -176,6 +215,7 @@ export default function AdminContact() {
             </button>
           </div>
         </div>
+        )}
       </div>
     </PageTransition>
   );

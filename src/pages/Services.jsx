@@ -7,7 +7,6 @@ import ServiceCard from '../components/ServiceCard';
 import PageTransition from '../components/PageTransition';
 import ScrollReveal from '../components/ScrollReveal';
 import { categories } from '../data/initialData';
-import SmartProductForm from '../admin/components/SmartProductForm';
 import FullProductEditor from '../admin/components/FullProductEditor';
 import { useAuth, useAdminMode } from '../context/AuthContext';
 import { Edit2, Trash2, Plus } from 'lucide-react';
@@ -133,7 +132,7 @@ export default function Services() {
     setFormMode('create');
     setEditingServiceId(null);
     setEditingService(null);
-    setIsSmartAddOpen(true);
+    setIsFullEditorOpen(true);
   };
 
   const openEditService = (service) => {
@@ -268,30 +267,7 @@ export default function Services() {
         </div>
       </section>
 
-      {isSmartAddOpen && (
-        <SmartProductForm 
-          onClose={() => {
-            setIsSmartAddOpen(false);
-            setFormMode('create');
-            setEditingServiceId(null);
-            setEditingService(null);
-          }}
-          onSuccess={(res) => {
-            setIsSmartAddOpen(false);
-            setFormMode('create');
-            setEditingServiceId(null);
-            setEditingService(null);
-            fetchServices();
-          }}
-          onOpenEditor={(res) => {
-            setIsSmartAddOpen(false);
-            setFormMode('create');
-            setEditingServiceId(null);
-            setEditingService(res);
-            setIsFullEditorOpen(true);
-          }}
-        />
-      )}
+
 
       {isFullEditorOpen && (
         <FullProductEditor 

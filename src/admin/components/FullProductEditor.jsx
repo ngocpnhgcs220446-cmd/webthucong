@@ -113,7 +113,7 @@ function normalizeService(s) {
 }
 
 export default function FullProductEditor({ service, mode, onClose, onSave }) {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('basic');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [errors, setErrors] = useState({});
@@ -134,12 +134,12 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
   );
 
   const tabs = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'tags', label: 'Tags & Positioning' },
-    { id: 'packages', label: 'Pricing / Packages' },
+    { id: 'basic', label: 'Basic Information' },
+    { id: 'media', label: 'Media' },
+    { id: 'packages', label: 'Pricing' },
     { id: 'experience', label: 'Experience Details' },
-    { id: 'description', label: 'Description & Lists' },
-    { id: 'meeting', label: 'Meeting Point' },
+    { id: 'description', label: 'Description' },
+    { id: 'meeting', label: 'Location' },
     { id: 'reviews', label: 'Reviews' }
   ];
 
@@ -222,10 +222,11 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
     const newErrors = {};
     if (!formData.title) newErrors.title = 'Title is required';
     if (!formData.slug) newErrors.slug = 'Slug is required';
+    if (!formData.price) newErrors.price = 'Price is required';
     
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      setActiveTab('overview');
+      setActiveTab('basic');
       showToast({ type: 'error', title: 'Thiếu thông tin', message: 'Vui lòng kiểm tra các trường bắt buộc.' });
       return;
     }
@@ -245,7 +246,7 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
     } catch (error) {
       if (error.fields) {
         setErrors(error.fields);
-        if (error.fields.featured) setActiveTab('overview');
+        if (error.fields.featured) setActiveTab('basic');
         showToast({ type: 'error', title: 'Lỗi xác thực', message: 'Vui lòng kiểm tra lại thông tin form.' });
       } else {
         showToast({ type: 'error', title: 'Không thể lưu sản phẩm', message: getApiErrorMessage(error) });
@@ -297,7 +298,7 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
               }}
             >
               {tab.label}
-              {(tab.id === 'overview' && (errors.title || errors.slug || errors.featured)) && <span style={{ position: 'absolute', top: '10px', right: '4px', width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }}></span>}
+              {(tab.id === 'basic' && (errors.title || errors.slug || errors.price || errors.featured)) && <span style={{ position: 'absolute', top: '10px', right: '4px', width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }}></span>}
             </button>
           ))}
         </div>
@@ -305,13 +306,12 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
         {/* Content */}
         <form id="productForm" onSubmit={handleSubmit} className="admin-form-body" style={{ flex: 1, overflowY: 'auto', background: '#f1f5f9' }}>
           
-          {/* TAB: OVERVIEW */}
-          <div style={{ display: activeTab === 'overview' ? 'block' : 'none' }}>
-            
+          {/* TAB: BASIC */}
+          <div style={{ display: activeTab === 'basic' ? 'block' : 'none' }}>
             <SectionGroup title="Main Identity" description="Core details used to identify this product on the platform.">
               <div className="field-grid-2">
                 <div className="form-field">
-                  <label>Product name <span style={{color: 'red'}}>*</span></label>
+                  <label>Product Name <span style={{color: 'red'}}>*</span></label>
                   <input name="title" value={formData.title} onChange={handleChange} onBlur={handleTitleBlur} style={{ border: errors.title ? '1px solid red' : '' }} required placeholder="e.g. Traditional Lion Head Crafting" />
                   {errors.title && <span style={{ color: 'red', fontSize: '12px' }}>{errors.title}</span>}
                 </div>
@@ -324,10 +324,24 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
               <div className="field-grid-2">
                 <div className="form-field">
                   <label>Category</label>
-                  <select name="category" value={formData.category} onChange={handleChange}>
+                  <select name="category" value={formData.category} onChange={handleChange} style={{ border: errors.category ? '1px solid red' : '' }}>
                     {PRODUCT_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
                   </select>
                 </div>
+                
+                <div className="form-field">
+                  <label>Activity Type</label>
+                  <select name="activityType" value={formData.experienceTags?.includes('Online') ? 'Online' : formData.experienceTags?.includes('DIY') ? 'DIY Kit' : 'Offline'} onChange={(e) => {
+                    const val = e.target.value;
+                    const tags = (formData.experienceTags || []).filter(t => t !== 'Offline' && t !== 'Online' && t !== 'DIY Kit');
+                    setFormData(p => ({ ...p, experienceTags: [...tags, val] }));
+                  }}>
+                    <option value="Offline">Offline</option>
+                    <option value="Online">Online</option>
+                    <option value="DIY Kit">DIY Kit</option>
+                  </select>
+                </div>
+
                 <div className="form-field">
                   <label>Product group / Collection</label>
                   <select name="groupName" value={formData.groupName} onChange={handleChange}>
@@ -337,6 +351,34 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
                 </div>
               </div>
 
+              <div className="form-field">
+                <label>Short Description</label>
+                <textarea name="shortDescription" value={formData.shortDescription} onChange={handleChange} rows="2" placeholder="A catchy one-liner..." style={{ minHeight: '60px' }} />
+              </div>
+            </SectionGroup>
+
+            <SectionGroup title="Visibility & Ordering" description="Control where and how this product appears on the storefront.">
+              <div style={{ display: 'flex', gap: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px', color: '#334155' }}>
+                  <input type="checkbox" name="status" checked={formData.status === 'published'} onChange={(e) => setFormData(p => ({ ...p, status: e.target.checked ? 'published' : 'draft', featured: e.target.checked ? p.featured : false }))} style={{ width: '18px', height: '18px' }} />
+                  Active / Published
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px', color: '#334155' }}>
+                  <input type="checkbox" name="featured" checked={formData.featured} onChange={handleChange} disabled={formData.status !== 'published'} style={{ width: '18px', height: '18px', opacity: formData.status === 'published' ? 1 : 0.5 }} />
+                  Featured on Home
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, fontSize: '14px', color: '#334155' }}>
+                  Sort Order:
+                  <input type="number" name="sortOrder" value={formData.sortOrder} onChange={handleChange} style={{ width: '80px', padding: '6px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
+                </div>
+              </div>
+              {errors.featured && <div style={{ color: 'red', fontSize: '13px', marginTop: '8px' }}>{errors.featured}</div>}
+            </SectionGroup>
+          </div>
+
+          {/* TAB: MEDIA */}
+          <div style={{ display: activeTab === 'media' ? 'block' : 'none' }}>
+            <SectionGroup title="Media">
               <div className="form-field">
                 <label>Media Gallery (Select 1 Cover) <span style={{ color: 'red' }}>*</span></label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 12, marginTop: '8px' }}>
@@ -423,38 +465,17 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
                   <input type="number" name="sortOrder" value={formData.sortOrder} onChange={handleChange} style={{ width: '80px', padding: '6px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
                 </div>
               </div>
-              {errors.featured && <div style={{ color: 'red', fontSize: '13px', marginTop: '8px' }}>{errors.featured}</div>}
             </SectionGroup>
           </div>
 
-          {/* TAB: TAGS */}
-          <div style={{ display: activeTab === 'tags' ? 'block' : 'none' }}>
-            <SectionGroup title="Tag Assignment" description="Priority tags help highlight products on the Home page and product cards. Experience and Booking tags show as trust badges on the product detail page.">
-              
-              <div className="form-field">
-                <label>Experience Tags</label>
-                <ChipSelector options={EXPERIENCE_TAGS} selected={formData.experienceTags || []} onChange={(v) => setFormData(p => ({...p, experienceTags: v}))} />
-              </div>
-              
-              <div className="form-field" style={{ marginTop: '16px' }}>
-                <label>Booking Tags</label>
-                <ChipSelector options={BOOKING_TAGS} selected={formData.bookingTags || []} onChange={(v) => setFormData(p => ({...p, bookingTags: v}))} />
-              </div>
-
-              <div className="form-field" style={{ marginTop: '16px' }}>
-                <label>Priority Tags</label>
-                <ChipSelector options={PRIORITY_TAGS} selected={formData.priorityTags || []} onChange={(v) => setFormData(p => ({...p, priorityTags: v}))} />
-              </div>
-            </SectionGroup>
-          </div>
-
-          {/* TAB: PRICING / PACKAGES */}
+{/* TAB: PRICING / PACKAGES */}
           <div style={{ display: activeTab === 'packages' ? 'block' : 'none' }}>
             <SectionGroup title="General Pricing" description="The starting price shown on product cards across the site.">
               <div className="field-grid-2">
                 <div className="form-field">
                   <label>Display Price Text (Public)</label>
-                  <input name="price" value={formData.price} onChange={handleChange} placeholder="e.g. From $35 / person" />
+                  <input name="price" value={formData.price} onChange={handleChange} placeholder="e.g. From $35 / person" style={{ border: errors.price ? '1px solid red' : '' }} />
+                  {errors.price && <span style={{ color: 'red', fontSize: '12px' }}>{errors.price}</span>}
                 </div>
                 <div className="field-grid-2">
                   <div className="form-field">
@@ -584,6 +605,21 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
                 </label>
                 <label>Reserve Policy Description</label>
                 <input name="reservePolicy" value={formData.reservePolicy} onChange={handleChange} placeholder="e.g. Keep your travel plans flexible — book your spot and pay nothing today" />
+              </div>
+            </SectionGroup>
+
+            <SectionGroup title="Tags" description="Categorize for search and filtering.">
+              <div className="form-field">
+                <label>Experience Tags</label>
+                <ChipSelector options={EXPERIENCE_TAGS} selected={formData.experienceTags || []} onChange={(v) => setFormData(p => ({...p, experienceTags: v}))} />
+              </div>
+              <div className="form-field" style={{ marginTop: '16px' }}>
+                <label>Booking Tags</label>
+                <ChipSelector options={BOOKING_TAGS} selected={formData.bookingTags || []} onChange={(v) => setFormData(p => ({...p, bookingTags: v}))} />
+              </div>
+              <div className="form-field" style={{ marginTop: '16px' }}>
+                <label>Priority Tags</label>
+                <ChipSelector options={PRIORITY_TAGS} selected={formData.priorityTags || []} onChange={(v) => setFormData(p => ({...p, priorityTags: v}))} />
               </div>
             </SectionGroup>
           </div>
