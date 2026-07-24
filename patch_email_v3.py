@@ -1,4 +1,5 @@
-import nodemailer from 'nodemailer';
+with open("server/email.js", "w") as f:
+    f.write("""import nodemailer from 'nodemailer';
 
 // 1. Define required variables
 const requiredSmtpVariables = [
@@ -103,7 +104,7 @@ function buildCustomerConfirmationHtml(context) {
   const customerName = escapeHtml(context.customerName);
   const requestId = escapeHtml(context.requestId);
   const serviceTitle = escapeHtml(context.serviceTitle);
-  const customerMessage = escapeHtml(context.customerMessage).replaceAll('\n', '<br />');
+  const customerMessage = escapeHtml(context.customerMessage).replaceAll('\\n', '<br />');
 
   return `
     <!doctype html>
@@ -176,7 +177,7 @@ export async function sendAdminLeadNotification(context) {
         context.customerMessage,
         '',
         'Reply to this email to contact the customer directly.',
-      ].join('\n'),
+      ].join('\\n'),
     });
 
     const sent = Array.isArray(info.accepted) && info.accepted.length > 0;
@@ -235,7 +236,7 @@ export async function sendCustomerLeadConfirmation(context) {
         '',
         'Best regards,',
         'Conical Hat Workshop',
-      ].join('\n'),
+      ].join('\\n'),
       html: buildCustomerConfirmationHtml(context),
     });
 
@@ -267,3 +268,4 @@ export const sendCustomerStatusChangeEmail = async (lead, newStatus) => {
   // Simplified for compatibility, shouldn't crash
   return 'skipped';
 };
+""")

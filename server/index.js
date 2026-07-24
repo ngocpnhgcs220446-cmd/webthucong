@@ -11,7 +11,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import helmet from 'helmet';
 import 'dotenv/config';
-import { sendAdminLeadNotification, sendCustomerLeadConfirmation, sendCustomerStatusChangeEmail } from './email.js';
+import { sendAdminLeadNotification, sendCustomerLeadConfirmation, sendCustomerStatusChangeEmail, verifySmtpConnection } from './email.js';
 import * as valid from './utils/validation.js';
 import pkg from '@prisma/client';
 const { PrismaClient } = pkg;
@@ -22,6 +22,10 @@ console.log('[Database Runtime]', {
 });
 
 const prisma = new PrismaClient();
+
+// Verify SMTP once on startup
+verifySmtpConnection().catch(err => console.error('[SMTP] Startup verification error:', err));
+
 const app = express();
 const PORT = Number(process.env.PORT || 5001);
 
