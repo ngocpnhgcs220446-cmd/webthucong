@@ -291,6 +291,20 @@ export async function sendCustomerLeadConfirmation(context) {
     if (!resend) return { sent: false, reason: 'resend-not-configured' };
     if (!context.customerEmail) return { sent: false, reason: 'customer-email-missing' };
 
+    // Guard: Resend Free tier only allows sending to the account owner's email.
+    // Until a custom domain is verified at resend.com/domains, skip customer confirmation
+    // to avoid 403 validation_error. Admin notification is still sent.
+    const resendOwnerEmail = String(process.env.RESEND_OWNER_EMAIL || '').trim().toLowerCase();
+    const customerEmailLower = context.customerEmail.trim().toLowerCase();
+    const domainVerified = String(process.env.RESEND_DOMAIN_VERIFIED || 'false').trim().toLowerCase() === 'true';
+
+    if (!domainVerified && resendOwnerEmail && customerEmailLower !== resendOwnerEmail) {
+      console.warn('[Email] Customer confirmation skipped: Resend domain not yet verified. Set RESEND_DOMAIN_VERIFIED=true after verifying your domain at resend.com/domains.', {
+        referenceCode: context.referenceCode,
+      });
+      return { sent: false, reason: 'resend-domain-not-verified' };
+    }
+
     const result = await resend.emails.send({
       from: emailFrom,
       to: [context.customerEmail],
