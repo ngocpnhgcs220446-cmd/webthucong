@@ -1218,6 +1218,20 @@ app.post('/api/leads', leadLimiter, async (req, res, next) => {
     let newLead = null;
     let retries = 3;
 
+    // --- Pricing: always from DB, never from frontend ---
+    const quantity   = Math.max(1, parsedGuests || 1);
+    let unitPrice    = 0;
+    let totalAmount  = 0;
+    let currency     = 'VND';
+
+    if (packagePriceSnapshot != null) {
+      unitPrice   = Number(packagePriceSnapshot);
+      currency    = packageCurrencySnapshot || 'VND';
+    } else if (serviceRecord?.defaultEstimatedPrice != null) {
+      unitPrice = Number(serviceRecord.defaultEstimatedPrice);
+    }
+    totalAmount = unitPrice * quantity;
+
     while (retries > 0 && !newLead) {
       try {
         const random = crypto.randomBytes(4).toString('hex').toUpperCase();
@@ -1240,6 +1254,7 @@ app.post('/api/leads', leadLimiter, async (req, res, next) => {
             packagePriceSnapshot,
             packageCurrencySnapshot,
             source: data.source || 'website',
+            estimatedRevenue: Math.round(totalAmount),
           }
         });
       } catch (err) {
@@ -1268,20 +1283,6 @@ app.post('/api/leads', leadLimiter, async (req, res, next) => {
     }
 
     const referenceCode = getLeadRequestId(newLead);
-
-    // --- Pricing: always from DB, never from frontend ---
-    const quantity   = Math.max(1, parsedGuests || 1);
-    let unitPrice    = 0;
-    let totalAmount  = 0;
-    let currency     = 'VND';
-
-    if (packagePriceSnapshot != null) {
-      unitPrice   = Number(packagePriceSnapshot);
-      currency    = packageCurrencySnapshot || 'VND';
-    } else if (serviceRecord?.defaultEstimatedPrice != null) {
-      unitPrice = Number(serviceRecord.defaultEstimatedPrice);
-    }
-    totalAmount = unitPrice * quantity;
 
     const bookingContext = {
       referenceCode,
