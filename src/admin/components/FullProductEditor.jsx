@@ -368,7 +368,7 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
       <div className="product-modal" style={{ width: '100%', maxWidth: '960px', maxHeight: 'calc(100vh - 32px)', overflow: 'hidden', borderRadius: '16px', background: '#fff', boxShadow: '0 24px 80px rgba(15, 23, 42, 0.24)', display: 'flex', flexDirection: 'column' }}>
         
         {/* Header */}
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff' }}>
+        <div style={{ flexShrink: 0, padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff' }}>
           <div>
             <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: 700 }}>
               {mode === 'edit' ? `Edit Product: ${formData.title}` : 'Add New Product'}
@@ -386,7 +386,7 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
         </div>
         
         {/* Tabs Navigation */}
-        <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', overflowX: 'auto', padding: '0 8px' }}>
+        <div style={{ flexShrink: 0, display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', overflowX: 'auto', padding: '0 8px' }}>
           {tabs.map(tab => (
             <button
               key={tab.id}
@@ -412,7 +412,7 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
         </div>
 
         {/* Content */}
-        <form id="productForm" onSubmit={handleSubmit} className="admin-form-body" style={{ flex: 1, overflowY: 'auto', background: '#f1f5f9' }}>
+        <form id="productForm" onSubmit={handleSubmit} className="admin-form-body" style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: '#f1f5f9' }}>
           
           {submitError && (
             <div style={{ margin: '16px 24px', padding: '16px', background: '#fee2e2', color: '#b91c1c', borderRadius: '8px', border: '1px solid #f87171', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -903,7 +903,7 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
         </form>
         
         {/* Footer */}
-        <div className="admin-form-footer">
+        <div className="admin-form-footer" style={{ flexShrink: 0 }}>
           <button type="button" onClick={onClose} disabled={isSaving || isUploadingImage} style={{ padding: '10px 24px', border: '1px solid #cbd5e1', borderRadius: '12px', background: '#fff', cursor: isSaving || isUploadingImage ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 600, color: '#334155' }}>
             Cancel
           </button>
