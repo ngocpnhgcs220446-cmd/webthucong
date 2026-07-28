@@ -997,6 +997,103 @@
   .mobile-only {
     display: block;
   }
+
+  /* ==========================================================================
+     11. Why Choose Us Layout
+     ========================================================================== */
+  .section.soft-bg {
+    padding-block: 32px !important;
+  }
+
+  .section.soft-bg .container {
+    padding-inline: 16px !important;
+  }
+
+  .values-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  .value-card {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 18px !important;
+    overflow: visible !important;
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) !important;
+    align-items: start !important;
+    gap: 12px !important;
+  }
+
+  .value-card svg {
+    width: 40px !important;
+    height: 40px !important;
+    flex: 0 0 auto !important;
+  }
+
+  .value-card h3 {
+    margin: 0 !important;
+    font-size: 1.05rem !important;
+    line-height: 1.3 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: initial !important;
+    -webkit-line-clamp: unset !important;
+    display: block !important;
+  }
+
+  .value-card p {
+    display: block !important;
+    margin: 0 !important;
+    font-size: 0.9375rem !important;
+    line-height: 1.55 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: initial !important;
+    -webkit-line-clamp: unset !important;
+    -webkit-box-orient: initial !important;
+  }
+
+  @media (max-width: 420px) {
+    .value-card {
+      grid-template-columns: 1fr !important;
+    }
+  }
+
+  /* ==========================================================================
+     12. Service Detail Gallery
+     ========================================================================== */
+  .gallery-grid {
+    grid-template-columns: 1.35fr 1fr !important;
+    gap: 6px !important;
+    height: 240px !important;
+    border-radius: 14px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Adjust the inner gap for the side images wrapper */
+  .gallery-grid > div:nth-child(2) {
+    gap: 6px !important;
+  }
+
+  .bento-box {
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    border-radius: 8px !important;
+  }
+
+  .bento-img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    object-position: center !important;
+    display: block !important;
+  }
 }
 
 /* 

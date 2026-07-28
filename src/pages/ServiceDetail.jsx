@@ -158,7 +158,7 @@ export default function ServiceDetail() {
           
           {/* Gallery Bento Box */}
           <div style={{ gridColumn: '1 / -1' }}>
-            <div style={{ 
+            <div className="gallery-grid" style={{ 
               display: 'grid', 
               gridTemplateColumns: '2fr 1fr', 
               gap: '12px', 
