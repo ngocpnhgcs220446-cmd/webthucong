@@ -969,14 +969,20 @@
     gap: 16px !important;
   }
 
+  .admin-page {
+    padding: 16px !important;
+  }
+
   .admin-page-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 16px;
   }
 
-  .admin-page-header .btn {
+  .admin-page-header button,
+  .admin-page-header .admin-btn {
     width: 100%;
+    justify-content: center;
   }
 
   .image-upload-panel,
