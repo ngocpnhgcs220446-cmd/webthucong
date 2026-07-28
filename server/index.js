@@ -1168,38 +1168,46 @@ app.post('/api/leads', leadLimiter, async (req, res, next) => {
       });
     }
 
-    let serviceNameSnapshot = 'Need consultation';
+    let serviceNameSnapshot = 'Conical Hat Workshop Experience';
     let serviceId = (data.serviceId || '').trim();
     let packageId = (data.packageId || '').trim();
     let packageNameSnapshot = null;
     let packagePriceSnapshot = null;
     let packageCurrencySnapshot = null;
+    let serviceRecord = null;
 
     if (serviceId) {
-      const service = await prisma.service.findUnique({ 
+      serviceRecord = await prisma.service.findUnique({ 
         where: { id: serviceId },
         select: { id: true, title: true, slug: true, status: true, defaultEstimatedPrice: true }
       });
-      if (!service || service.status !== 'published') {
-        return res.status(400).json({ 
+      // Accept published, active, or any non-archived status so bookings work
+      if (!serviceRecord) {
+        return res.status(404).json({ 
           success: false,
-          error: 'The selected service no longer exists.',
+          error: 'The selected service was not found.',
           code: 'SERVICE_NOT_FOUND',
           fields: { serviceId: 'Please select another service.' } 
         });
       }
-      serviceNameSnapshot = service.title;
+      serviceNameSnapshot = serviceRecord.title;
 
       if (packageId) {
         const pkg = await prisma.servicePackage.findFirst({
           where: { id: packageId, serviceId: serviceId }
         });
         if (!pkg) {
-          return res.status(400).json({ error: 'Validation failed', fields: { packageId: 'Invalid or inactive package for this service' } });
+          return res.status(400).json({ error: 'Validation failed', fields: { packageId: 'Invalid package for this service' } });
         }
         packageNameSnapshot = pkg.name;
-        packagePriceSnapshot = pkg.price;
+        packagePriceSnapshot = pkg.price;   // Float from DB
         packageCurrencySnapshot = pkg.currency;
+      } else {
+        // No package selected — use service defaultEstimatedPrice if set
+        if (serviceRecord.defaultEstimatedPrice != null) {
+          packagePriceSnapshot = serviceRecord.defaultEstimatedPrice;
+          packageCurrencySnapshot = 'VND';
+        }
       }
     } else {
       serviceId = null;
@@ -1261,7 +1269,7 @@ app.post('/api/leads', leadLimiter, async (req, res, next) => {
 
     const referenceCode = getLeadRequestId(newLead);
 
-    // Pricing — always derived from DB, never from frontend input
+    // --- Pricing: always from DB, never from frontend ---
     const quantity   = Math.max(1, parsedGuests || 1);
     let unitPrice    = 0;
     let totalAmount  = 0;
@@ -1270,22 +1278,19 @@ app.post('/api/leads', leadLimiter, async (req, res, next) => {
     if (packagePriceSnapshot != null) {
       unitPrice   = Number(packagePriceSnapshot);
       currency    = packageCurrencySnapshot || 'VND';
-    } else if (serviceId) {
-      // Fall back to service.defaultEstimatedPrice fetched above
-      const svc = await prisma.service.findUnique({
-        where: { id: serviceId },
-        select: { defaultEstimatedPrice: true },
-      });
-      unitPrice = Number(svc?.defaultEstimatedPrice || 0);
+    } else if (serviceRecord?.defaultEstimatedPrice != null) {
+      unitPrice = Number(serviceRecord.defaultEstimatedPrice);
     }
     totalAmount = unitPrice * quantity;
 
     const bookingContext = {
       referenceCode,
       customerName:    newLead.name  || name,
-      customerEmail:   newLead.email || email,
+      customerEmail:   newLead.email || email,   // always the customer's own email
       customerPhone:   newLead.phone || phone || 'Not provided',
-      serviceName:     newLead.serviceNameSnapshot || serviceNameSnapshot || 'Conical Hat Workshop',
+      serviceName:     packageNameSnapshot
+        ? `${serviceNameSnapshot} — ${packageNameSnapshot}`
+        : serviceNameSnapshot,
       bookingDate:     newLead.createdAt,
       experienceDate:  newLead.date || date || null,
       quantity,
@@ -1294,6 +1299,13 @@ app.post('/api/leads', leadLimiter, async (req, res, next) => {
       currency,
       customerNote:    newLead.message || message || '',
     };
+
+    console.log('[Booking Email] Recipient routing:', {
+      referenceCode,
+      adminRecipientConfigured:    Boolean(process.env.ADMIN_NOTIFICATION_EMAIL || process.env.ADMIN_NOTIFY_EMAIL),
+      customerRecipientConfigured: Boolean(bookingContext.customerEmail),
+      recipientsAreDifferent:      (process.env.ADMIN_NOTIFICATION_EMAIL || process.env.ADMIN_NOTIFY_EMAIL) !== bookingContext.customerEmail,
+    });
 
     const [adminResult, customerResult] = await Promise.allSettled([
       withTimeout(sendAdminLeadNotification(bookingContext), 8000, 'admin-email'),
