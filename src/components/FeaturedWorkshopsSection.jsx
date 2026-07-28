@@ -708,7 +708,7 @@ export default function FeaturedWorkshopsSection({ products = [], title, descrip
           {!hero ? (
             <EmptyState isAdmin={isAdmin} />
           ) : (
-            <div className={items.length > 1 ? "featured-showcase-grid" : ""}>
+            <div className={`experience-rail ${items.length > 1 ? "featured-showcase-grid" : ""}`}>
 
               {/* Card 1: Hero */}
               <ScrollReveal style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>

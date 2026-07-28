@@ -487,6 +487,17 @@ export default function ServiceDetail() {
         </div>
       </section>
 
+      {/* Mobile Sticky Booking Bar */}
+      <div className="mobile-booking-bar mobile-only">
+        <div className="mobile-booking-bar__price">
+          <span>From</span>
+          <strong>{formatCurrency(service.price, service.currency)}</strong>
+        </div>
+        <button className="btn mobile-booking-bar__button" onClick={() => handleReserve(null)}>
+          Book Now
+        </button>
+      </div>
+
       {modalOpen && <InquiryModal service={service} selectedPackage={selectedPackage} onClose={() => setModalOpen(false)} />}
       
       {/* Fullscreen Image Viewer */}

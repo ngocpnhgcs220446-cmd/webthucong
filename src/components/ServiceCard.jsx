@@ -24,6 +24,10 @@ export default function ServiceCard({ service }) {
           <span><Users size={15} /> {service.groupSize}</span>
           <span><MapPin size={15} /> {service.location}</span>
         </div>
+        <div className="service-card__price-row mobile-only">
+           <span className="service-card__price-prefix">From</span>
+           <span className="service-card__price">{formatCurrency(service.price, service.currency)}</span>
+        </div>
         <Link to={`/services/${service.slug}`} className="text-link">View details <ArrowRight size={16} /></Link>
       </div>
     </article>

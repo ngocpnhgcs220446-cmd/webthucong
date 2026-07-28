@@ -92,8 +92,8 @@ export default function InquiryModal({ service, selectedPackage, onClose }) {
   };
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" style={{ zIndex: 9999 }}>
-      <div className="modal-card" style={{ maxWidth: '600px' }}>
+    <div className="modal-backdrop booking-modal-backdrop" role="dialog" aria-modal="true" style={{ zIndex: 9999 }}>
+      <div className="modal-card booking-modal" style={{ maxWidth: '600px' }}>
         <button className="modal-close" onClick={onClose} aria-label="Close" disabled={isSubmitting}><X size={22} /></button>
         {submittedData ? (
           <div className="success-state" style={{ textAlign: 'center', padding: '40px 20px' }}>

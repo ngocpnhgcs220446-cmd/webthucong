@@ -1,17 +1,29 @@
 /* 
-  Mobile-Only CSS Rules
+  Mobile-Only CSS Rules (GetYourGuide-Inspired Marketplace Design)
   Strictly isolated to max-width: 767px to avoid desktop regressions.
 */
 
 @media (max-width: 767px) {
   /* ==========================================================================
-     1. Base & Global Overrides
+     1. Base & Global Overrides (Design System)
      ========================================================================== */
+  :root {
+    --mobile-page-padding: 16px;
+    --mobile-section-gap: 32px;
+    --mobile-card-radius: 16px;
+    --mobile-control-radius: 12px;
+    --mobile-border: rgba(17, 24, 39, 0.12);
+    --mobile-muted: #5f6368;
+    --mobile-surface: #ffffff;
+    --mobile-surface-soft: #f7f7f7;
+    --mobile-text: #1f2937;
+  }
+
   html,
   body,
   #root {
     width: 100%;
-    min-height: 100%;
+    max-width: 100%;
     overflow-x: hidden;
   }
 
@@ -31,35 +43,42 @@
 
   body {
     font-size: 16px;
-    line-height: 1.6;
+    line-height: 1.5;
+    background: #fff;
+    color: var(--mobile-text);
   }
 
-  h1 {
-    font-size: clamp(2rem, 9vw, 2.75rem) !important;
+  h1, h2, h3, p {
+    overflow-wrap: break-word;
   }
 
-  h2 {
-    font-size: clamp(1.5rem, 7vw, 2.1rem) !important;
+  .body-copy,
+  .product-description {
+    font-size: 1rem;
+    line-height: 1.65;
   }
 
-  h3 {
-    font-size: 1.25rem !important;
+  .eyebrow,
+  .meta-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 
   /* Container */
+  .page-container,
   .container,
+  .section-container,
   .nav-wrap,
-  .hero-container,
-  .section,
   .footer-inner {
     width: 100%;
-    padding-left: 16px !important;
-    padding-right: 16px !important;
-    padding-inline: 16px !important;
+    max-width: 100%;
+    padding-inline: var(--mobile-page-padding) !important;
   }
 
   .section {
-    padding-block: 48px !important;
+    padding-block: 32px !important;
   }
 
   /* Interactive Elements */
@@ -73,36 +92,67 @@
   select,
   textarea {
     min-height: 44px;
+    -webkit-tap-highlight-color: transparent;
   }
 
-  input,
-  select,
-  textarea {
-    font-size: 16px !important; /* Prevent iOS zoom */
-  }
-
-  .breakable-text,
-  .form-help,
-  .link-preview {
-    overflow-wrap: anywhere;
-    word-break: break-word;
+  .button:active,
+  .mobile-booking-bar__button:active {
+    transform: translateY(1px);
   }
 
   /* ==========================================================================
-     2. Header & Client Navigation
+     2. Header & Client Navigation (App-like sticky header)
      ========================================================================== */
   .site-header {
-    min-height: 64px;
-    padding-left: 0;
-    padding-right: 0;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    min-height: 60px !important;
+    padding: 8px 16px !important;
+    background: rgba(255,255,255,0.96) !important;
+    backdrop-filter: blur(12px) !important;
+    border-bottom: 1px solid var(--mobile-border) !important;
+  }
+
+  .nav-wrap {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    padding-inline: 0 !important; /* Overriden by site-header padding */
+  }
+
+  .brand img {
+    max-height: 34px !important;
+    width: auto;
+  }
+
+  .brand span {
+    display: none; /* Hide brand text on mobile if logo exists, or keep small */
+  }
+
+  .desktop-navigation {
+    display: none;
   }
 
   .menu-btn {
     display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
     width: 44px;
     height: 44px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50% !important;
+    background: transparent !important;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .nav-actions > .btn {
+    display: none; /* Hide generic book now btn from header on mobile */
   }
 
   .mobile-menu-overlay {
@@ -156,95 +206,406 @@
   }
 
   /* ==========================================================================
-     3. Hero Section
+     3. Hero Section (Immersive booking landing)
      ========================================================================== */
   .hero {
-    min-height: auto;
-    padding-block: 48px 32px;
+    position: relative;
+    min-height: 460px !important;
+    padding: 0 !important;
+    overflow: hidden;
+    border-radius: 0 0 24px 24px;
+    display: flex !important;
+    align-items: stretch !important;
   }
 
+  .hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.08) 20%, rgba(0,0,0,0.72) 100%);
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .hero-container,
   .hero-content {
-    display: grid !important;
-    grid-template-columns: 1fr !important;
-    gap: 28px !important;
+    position: relative;
+    z-index: 2;
+    min-height: 460px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-end !important;
+    padding: 32px 16px !important;
+    color: white;
+    width: 100%;
+    grid-template-columns: 1fr !important; /* override desktop grid */
+    text-align: left !important;
   }
 
   .hero-text {
-    text-align: center;
+    text-align: left !important;
+    max-width: 100%;
+  }
+
+  .hero-text h1 {
+    max-width: 92%;
+    margin: 0;
+    font-size: clamp(2rem, 9vw, 2.75rem) !important;
+    line-height: 1.04;
+    letter-spacing: -0.03em;
+  }
+
+  .hero-text p {
+    margin: 12px 0 0 !important;
+    max-width: 92%;
+    font-size: 1rem !important;
+    line-height: 1.55;
+    color: rgba(255,255,255,0.9) !important;
   }
 
   .hero-actions {
     display: grid !important;
     grid-template-columns: 1fr !important;
-    gap: 12px !important;
-    justify-content: center;
+    gap: 10px !important;
+    margin-top: 20px !important;
+    width: 100%;
   }
 
   .hero-actions .btn {
     width: 100%;
+    min-height: 50px;
+    border-radius: 12px;
+    font-weight: 700;
   }
 
   /* ==========================================================================
-     4. Product Grids & Cards
+     4. Horizontal Experience Rail (Home page carousels)
      ========================================================================== */
-  .services-grid,
-  .product-grid {
+  .experience-rail,
+  .services-grid.experience-rail {
+    display: grid !important;
+    grid-auto-flow: column !important;
+    grid-auto-columns: 82% !important;
+    grid-template-columns: none !important;
+    gap: 14px !important;
+    overflow-x: auto !important;
+    overscroll-behavior-inline: contain !important;
+    scroll-snap-type: inline mandatory !important;
+    padding-right: 16px !important;
+    scrollbar-width: none;
+  }
+
+  .experience-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .experience-rail > *,
+  .experience-rail .featured-showcase-side > *,
+  .experience-rail .featured-showcase-smallGrid > * {
+    scroll-snap-align: start;
+    width: 100%;
+  }
+
+  /* Unnest complex grids for the carousel */
+  .experience-rail .featured-showcase-side,
+  .experience-rail .featured-showcase-smallGrid {
+    display: contents !important;
+  }
+
+  /* ==========================================================================
+     5. Product Card (Marketplace Style)
+     ========================================================================== */
+  /* If it's not a rail, just 1 column */
+  .services-grid:not(.experience-rail) {
     display: grid !important;
     grid-template-columns: 1fr !important;
-    gap: 16px !important;
+    gap: 24px !important;
   }
 
   .service-card {
-    width: 100%;
+    width: 100% !important;
     min-width: 0;
+    overflow: hidden;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    -webkit-tap-highlight-color: transparent;
+    display: flex;
+    flex-direction: column;
   }
 
   .service-image {
-    aspect-ratio: 16 / 10;
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--mobile-card-radius) !important;
+    background: var(--mobile-surface-soft);
+    display: block;
+    aspect-ratio: 4 / 3 !important;
     height: auto !important;
   }
 
-  /* ==========================================================================
-     5. Product Detail
-     ========================================================================== */
-  .service-detail-layout {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 24px;
+  .service-image img {
+    display: block;
+    width: 100%;
+    height: 100% !important;
+    object-fit: cover;
+    transition: transform 220ms ease;
   }
 
-  .service-sidebar,
-  .service-gallery {
+  .service-image:active img {
+    transform: scale(0.98);
+  }
+
+  .service-card__badge {
+    position: absolute;
+    top: 12px !important;
+    left: 12px !important;
+    right: auto !important;
+    max-width: calc(100% - 72px);
+    padding: 6px 10px !important;
+    border-radius: 8px !important;
+    background: #fff !important;
+    color: var(--green-darkest) !important;
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.14) !important;
+  }
+
+  .service-body {
+    display: grid;
+    gap: 7px;
+    padding: 12px 2px 0 !important;
+  }
+
+  .service-category {
+    margin: 0;
+    font-size: 0.8125rem !important;
+    color: var(--mobile-muted) !important;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  .service-body h3 {
+    display: -webkit-box;
+    margin: 0 !important;
+    overflow: hidden;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    line-height: 1.35 !important;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .service-meta {
+    margin: 0 !important;
+    font-size: 0.8125rem !important;
+    color: var(--mobile-muted) !important;
+    display: flex !important;
+    gap: 8px !important;
+    flex-wrap: wrap;
+  }
+
+  .service-card__price-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 3px;
+  }
+
+  .service-card__price {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #111827;
+  }
+
+  .service-card__price-prefix {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--mobile-muted);
+  }
+
+  /* Hide desktop price overlay and view details link on mobile card */
+  .service-image > span,
+  .service-body > .text-link {
+    display: none !important;
+  }
+
+  /* ==========================================================================
+     6. Section Headings
+     ========================================================================== */
+  .section-header {
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    margin-bottom: 16px !important;
+    text-align: left !important;
+  }
+
+  .section-header h2 {
+    margin: 0 !important;
+    font-size: 1.5rem !important;
+    line-height: 1.2 !important;
+    letter-spacing: -0.02em;
+  }
+
+  .section-header p {
+    margin-top: 6px !important;
+    font-size: 0.9375rem !important;
+    color: var(--mobile-muted) !important;
+  }
+
+  /* ==========================================================================
+     7. Product Detail & Sticky Bar
+     ========================================================================== */
+  .service-detail-layout {
+    display: block !important;
+  }
+
+  .product-detail-page {
+    padding-bottom: 92px !important; /* space for sticky bar */
+  }
+
+  /* Gallery Full Width Override */
+  .service-detail-layout > div:first-child > div:first-child {
+    display: block !important;
+    margin-inline: -16px !important;
+    height: auto !important;
+    border-radius: 0 !important;
+  }
+
+  .service-detail-layout .bento-box {
+    border-radius: 0 !important;
+  }
+  
+  .service-detail-layout .bento-box:not(:first-child) {
+    display: none !important; /* Hide secondary gallery images on mobile to focus on main */
+  }
+
+  .service-detail-layout .bento-img {
+    width: 100% !important;
+    aspect-ratio: 4 / 3 !important;
+    object-fit: cover !important;
+  }
+
+  .product-detail-content {
+    padding-top: 20px;
+  }
+
+  .service-detail-layout h1 {
+    margin: 16px 0 0 !important;
+    font-size: 1.75rem !important;
+    line-height: 1.15 !important;
+    letter-spacing: -0.025em;
+  }
+
+  .product-detail-key-facts {
+    display: grid;
+    gap: 12px;
+    margin: 20px 0;
+    padding: 16px;
+    border-radius: 14px;
+    background: var(--mobile-surface-soft);
+  }
+
+  .service-sidebar {
     position: static !important;
     width: 100% !important;
     max-width: 100% !important;
+    margin-top: 20px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
   }
 
-  .service-booking-action {
-    position: sticky;
+  .service-sidebar > .service-booking-action {
+    display: none !important; /* Hide original sidebar CTA on mobile */
+  }
+
+  .mobile-booking-bar {
+    position: fixed !important;
+    left: 0;
+    right: 0;
     bottom: 0;
-    z-index: 20;
-    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
-    background: #fff;
-    border-top: 1px solid #e2e8f0;
-    margin-left: -16px;
-    margin-right: -16px;
-    width: calc(100% + 32px);
+    z-index: 950;
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;
+    align-items: center !important;
+    gap: 12px !important;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom)) !important;
+    background: rgba(255,255,255,0.98) !important;
+    border-top: 1px solid var(--mobile-border) !important;
+    box-shadow: 0 -6px 20px rgba(0,0,0,0.08) !important;
   }
 
-  .service-booking-action .btn {
-    width: 100%;
-    min-height: 50px;
+  .mobile-booking-bar__price {
+    min-width: 0;
+    text-align: left;
+  }
+
+  .mobile-booking-bar__price strong {
+    display: block;
+    font-size: 1.125rem;
+    color: #111827;
+  }
+
+  .mobile-booking-bar__price span {
+    font-size: 0.75rem;
+    color: var(--mobile-muted);
+  }
+
+  .mobile-booking-bar__button {
+    min-width: 136px;
+    min-height: 48px;
+    padding-inline: 18px;
+    border-radius: 12px !important;
+    font-weight: 800 !important;
   }
 
   /* ==========================================================================
-     6. Booking Form
+     8. Bottom-Sheet Booking Modal
      ========================================================================== */
+  .modal-overlay,
+  .modal-backdrop,
+  .booking-modal-backdrop {
+    align-items: flex-end !important;
+    padding: 0 !important;
+    background: rgba(0,0,0,0.5) !important;
+  }
+
+  .modal-content,
+  .modal,
+  .inquiry-modal,
+  .booking-modal {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: 94dvh !important;
+    overflow-y: auto !important;
+    border-radius: 22px 22px 0 0 !important;
+    padding: 10px 16px calc(20px + env(safe-area-inset-bottom)) !important;
+    margin: 0 !important;
+  }
+
+  .booking-modal::before,
+  .modal-content::before {
+    content: "";
+    display: block;
+    width: 42px;
+    height: 4px;
+    margin: 2px auto 14px;
+    border-radius: 999px;
+    background: #d1d5db;
+  }
+
   .booking-form-grid,
   .form-grid,
   .two-column-form {
-    display: flex !important;
-    flex-direction: column !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
     gap: 16px !important;
   }
 
@@ -252,8 +613,69 @@
     width: 100% !important;
   }
 
+  .booking-form input,
+  .booking-form select,
+  .booking-form textarea {
+    width: 100% !important;
+    min-height: 50px !important;
+    padding: 12px 14px !important;
+    border: 1px solid var(--mobile-border) !important;
+    border-radius: 12px !important;
+    font-size: 16px !important;
+  }
+
+  .booking-price-summary {
+    display: grid !important;
+    gap: 10px !important;
+    margin-top: 20px !important;
+    padding: 16px !important;
+    border-radius: 14px !important;
+    background: var(--mobile-surface-soft) !important;
+  }
+
+  .booking-price-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    gap: 16px !important;
+    font-size: 0.9375rem !important;
+  }
+
+  .booking-price-total {
+    padding-top: 12px !important;
+    border-top: 1px solid var(--mobile-border) !important;
+    font-size: 1.125rem !important;
+    font-weight: 800 !important;
+  }
+
   /* ==========================================================================
-     7. Contact Page
+     9. Reviews & Trust Signals
+     ========================================================================== */
+  .trust-row {
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+    padding-block: 4px;
+    scrollbar-width: none;
+  }
+
+  .trust-item {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+  }
+
+  .review-card {
+    padding: 18px 0 !important;
+    border-bottom: 1px solid var(--mobile-border) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  /* ==========================================================================
+     10. Contact & Footer
      ========================================================================== */
   .contact-layout,
   .contact-grid,
@@ -267,35 +689,42 @@
   .contact-form-card {
     width: 100%;
     padding: 16px;
+    border: 0;
+    box-shadow: none;
+    border-radius: 0;
   }
 
   .map-embed iframe {
     width: 100%;
     min-height: 260px;
+    border-radius: 12px;
+  }
+
+  .footer {
+    padding: 36px 16px 24px !important;
+  }
+
+  .footer-inner {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+
+  .footer-column {
+    padding-bottom: 18px !important;
+    border-bottom: 1px solid rgba(255,255,255,0.14) !important;
+  }
+
+  .footer-bottom {
+    display: grid !important;
+    gap: 10px !important;
+    margin-top: 24px !important;
+    flex-direction: column !important;
+    text-align: center;
   }
 
   /* ==========================================================================
-     8. Modals
-     ========================================================================== */
-  .modal-overlay,
-  .modal-backdrop {
-    align-items: flex-end !important;
-    padding: 0 !important;
-  }
-
-  .modal-content,
-  .modal,
-  .inquiry-modal {
-    width: 100% !important;
-    max-width: none !important;
-    max-height: 92dvh !important;
-    overflow-y: auto !important;
-    border-radius: 20px 20px 0 0 !important;
-    padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important;
-  }
-
-  /* ==========================================================================
-     9. Admin Layout
+     11. Admin UI (Kept Clean and Practical)
      ========================================================================== */
   .admin-navbar {
     padding: 0 16px !important;
@@ -357,12 +786,9 @@
     display: none;
   }
 
-  /* ==========================================================================
-     10. Admin Forms (Add/Edit Product)
-     ========================================================================== */
   .product-modal {
     border-radius: 20px 20px 0 0 !important;
-    max-height: 92dvh !important;
+    max-height: 94dvh !important;
     width: 100% !important;
     max-width: none !important;
     margin: 0 !important;
@@ -391,9 +817,6 @@
     min-height: 200px !important;
   }
 
-  /* ==========================================================================
-     11. Tables
-     ========================================================================== */
   .table-container,
   .admin-table-wrapper {
     width: 100%;
@@ -414,6 +837,11 @@
     width: 100%;
     justify-content: flex-start !important;
   }
+
+  /* Isolation Helper for Mobile-only components */
+  .mobile-only {
+    display: block;
+  }
 }
 
 /* 
@@ -425,7 +853,9 @@
   .admin-mobile-overlay,
   .admin-sidebar-header-mobile,
   .mobile-menu-overlay,
-  .mobile-menu-close-header {
+  .mobile-menu-close-header,
+  .mobile-only,
+  .mobile-booking-bar {
     display: none !important;
   }
 }
