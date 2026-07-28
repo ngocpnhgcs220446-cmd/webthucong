@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Home, Briefcase, Mail, Settings, MessageSquare, Box } from 'lucide-react';
+import { LogOut, Home, Briefcase, Mail, Settings, MessageSquare, Box, Menu, X } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -8,6 +8,16 @@ export default function AdminNavbar() {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isOpen]);
 
   const handleLogout = () => {
     logout();
@@ -27,26 +37,41 @@ export default function AdminNavbar() {
   ];
 
   return (
-    <div className="admin-navbar">
-      <div className="admin-navbar-brand">
-        <span className="admin-badge">Admin Workspace</span>
+    <>
+      {isOpen && <div className="admin-mobile-overlay" onClick={() => setIsOpen(false)}></div>}
+      <div className="admin-navbar">
+        <div className="admin-navbar-brand">
+          <button className="admin-menu-toggle" onClick={() => setIsOpen(true)}>
+            <Menu size={20} />
+          </button>
+          <span className="admin-badge">Admin Workspace</span>
+        </div>
+        
+        <div className={`admin-navbar-links ${isOpen ? 'is-open' : ''}`}>
+          <div className="admin-sidebar-header-mobile">
+            <span style={{ fontWeight: 600, color: 'white' }}>Admin Menu</span>
+            <button className="admin-menu-close" onClick={() => setIsOpen(false)}>
+              <X size={20} />
+            </button>
+          </div>
+          {navItems.map(item => (
+            <Link 
+              key={item.path} 
+              to={item.path} 
+              className={`admin-nav-link ${location.pathname === item.path ? 'active' : ''}`}
+              onClick={() => setIsOpen(false)}
+            >
+              {item.icon}
+              {item.label}
+            </Link>
+          ))}
+        </div>
+        
+        <button className="admin-logout-btn" onClick={handleLogout} title="Log Out">
+          <LogOut size={16} />
+          <span className="admin-logout-text">Logout</span>
+        </button>
       </div>
-      <div className="admin-navbar-links">
-        {navItems.map(item => (
-          <Link 
-            key={item.path} 
-            to={item.path} 
-            className={`admin-nav-link ${location.pathname === item.path ? 'active' : ''}`}
-          >
-            {item.icon}
-            {item.label}
-          </Link>
-        ))}
-      </div>
-      <button className="admin-logout-btn" onClick={handleLogout} title="Log Out">
-        <LogOut size={16} />
-        <span>Logout</span>
-      </button>
-    </div>
+    </>
   );
 }

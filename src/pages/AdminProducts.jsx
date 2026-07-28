@@ -322,7 +322,7 @@ export default function AdminProducts() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {filtered.map(product => (
-            <div key={product.id} style={{
+            <div className="admin-product-row" key={product.id} style={{
               background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '16px 20px',
               display: 'flex', gap: 16, alignItems: 'center',
               opacity: product.status === 'published' ? 1 : 0.6, transition: 'all .2s',

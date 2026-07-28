@@ -663,7 +663,7 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
                         </div>
                       </div>
                       
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px', marginTop: '16px', paddingRight: '40px' }}>
+                      <div className="admin-package-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px', marginTop: '16px', paddingRight: '40px' }}>
                         <div className="form-field">
                           <label>Base Price</label>
                           <div className="price-input-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

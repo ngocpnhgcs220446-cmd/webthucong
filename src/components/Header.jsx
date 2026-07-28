@@ -1,6 +1,6 @@
 import { Link, NavLink } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import LanguageToggle from './LanguageToggle';
 import { useSettings } from '../context/SettingsContext';
 
@@ -14,6 +14,16 @@ const nav = [
 export default function Header({ language, onLanguageChange }) {
   const [open, setOpen] = useState(false);
   const { settings } = useSettings();
+
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [open]);
+
   return (
     <header className="site-header">
       <div className="container nav-wrap">
@@ -22,7 +32,15 @@ export default function Header({ language, onLanguageChange }) {
           <span>{settings.companyName || 'Experience Studio'}</span>
         </Link>
 
+        {open && <div className="mobile-menu-overlay" onClick={() => setOpen(false)}></div>}
+
         <nav className={`nav ${open ? 'open' : ''}`}>
+          <div className="mobile-menu-close-header">
+            <span className="mobile-menu-title">Menu</span>
+            <button className="menu-close-btn" onClick={() => setOpen(false)}>
+              <X size={24} />
+            </button>
+          </div>
           {nav.map((item) => (
             <NavLink key={item.to} to={item.to} onClick={() => setOpen(false)}>
               {item.label}
@@ -33,8 +51,8 @@ export default function Header({ language, onLanguageChange }) {
         <div className="nav-actions">
           <LanguageToggle language={language} onChange={onLanguageChange} />
           <Link className="btn btn-small" to="/contact">Book now</Link>
-          <button className="menu-btn" onClick={() => setOpen((v) => !v)} aria-label="Open menu">
-            {open ? <X size={22} /> : <Menu size={22} />}
+          <button className="menu-btn" onClick={() => setOpen(true)} aria-label="Open menu">
+            <Menu size={22} />
           </button>
         </div>
       </div>

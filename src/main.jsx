@@ -5,6 +5,7 @@ import App from './App';
 import './styles.css';
 import './admin-ui.css';
 import './index.css';
+import './mobile.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
