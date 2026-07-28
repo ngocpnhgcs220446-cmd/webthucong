@@ -1178,7 +1178,7 @@ app.post('/api/leads', leadLimiter, async (req, res, next) => {
     if (serviceId) {
       const service = await prisma.service.findUnique({ 
         where: { id: serviceId },
-        select: { id: true, title: true, slug: true, status: true }
+        select: { id: true, title: true, slug: true, status: true, defaultEstimatedPrice: true }
       });
       if (!service || service.status !== 'published') {
         return res.status(400).json({ 
@@ -1260,18 +1260,44 @@ app.post('/api/leads', leadLimiter, async (req, res, next) => {
     }
 
     const referenceCode = getLeadRequestId(newLead);
-    const emailContext = {
+
+    // Pricing — always derived from DB, never from frontend input
+    const quantity   = Math.max(1, parsedGuests || 1);
+    let unitPrice    = 0;
+    let totalAmount  = 0;
+    let currency     = 'VND';
+
+    if (packagePriceSnapshot != null) {
+      unitPrice   = Number(packagePriceSnapshot);
+      currency    = packageCurrencySnapshot || 'VND';
+    } else if (serviceId) {
+      // Fall back to service.defaultEstimatedPrice fetched above
+      const svc = await prisma.service.findUnique({
+        where: { id: serviceId },
+        select: { defaultEstimatedPrice: true },
+      });
+      unitPrice = Number(svc?.defaultEstimatedPrice || 0);
+    }
+    totalAmount = unitPrice * quantity;
+
+    const bookingContext = {
       referenceCode,
-      customerName: newLead.name || name,
-      customerEmail: newLead.email || email,
-      customerPhone: newLead.phone || phone || 'Not provided',
-      customerMessage: newLead.message || message,
-      serviceTitle: newLead.serviceNameSnapshot || serviceNameSnapshot || 'General enquiry',
+      customerName:    newLead.name  || name,
+      customerEmail:   newLead.email || email,
+      customerPhone:   newLead.phone || phone || 'Not provided',
+      serviceName:     newLead.serviceNameSnapshot || serviceNameSnapshot || 'Conical Hat Workshop',
+      bookingDate:     newLead.createdAt,
+      experienceDate:  newLead.date || date || null,
+      quantity,
+      unitPrice,
+      totalAmount,
+      currency,
+      customerNote:    newLead.message || message || '',
     };
 
     const [adminResult, customerResult] = await Promise.allSettled([
-      withTimeout(sendAdminLeadNotification(emailContext), 8000, 'admin-email'),
-      withTimeout(sendCustomerLeadConfirmation(emailContext), 8000, 'customer-email')
+      withTimeout(sendAdminLeadNotification(bookingContext), 8000, 'admin-email'),
+      withTimeout(sendCustomerLeadConfirmation(bookingContext), 8000, 'customer-email')
     ]);
 
     function normalizeEmailResult(result) {
@@ -1284,9 +1310,8 @@ app.post('/api/leads', leadLimiter, async (req, res, next) => {
       };
     }
 
-    const adminEmail = normalizeEmailResult(adminResult);
+    const adminEmail    = normalizeEmailResult(adminResult);
     const customerEmail = normalizeEmailResult(customerResult);
-
     const emailProvider = String(process.env.EMAIL_PROVIDER || 'resend').trim().toLowerCase();
 
     res.status(201).json({
@@ -1295,14 +1320,22 @@ app.post('/api/leads', leadLimiter, async (req, res, next) => {
         id: newLead.id,
         referenceCode,
       },
-      email: {
-        provider: emailProvider,
-        adminNotificationSent: adminEmail.sent === true,
-        customerConfirmationSent: customerEmail.sent === true,
+      booking: {
+        serviceName:    bookingContext.serviceName,
+        experienceDate: bookingContext.experienceDate,
+        quantity:       bookingContext.quantity,
+        unitPrice:      bookingContext.unitPrice,
+        totalAmount:    bookingContext.totalAmount,
+        currency:       bookingContext.currency,
       },
-      warning: (adminEmail.sent && customerEmail.sent) 
-        ? undefined 
-        : 'The enquiry was saved, but one or more emails could not be delivered.',
+      email: {
+        provider:                   emailProvider,
+        adminNotificationSent:      adminEmail.sent    === true,
+        customerConfirmationSent:   customerEmail.sent === true,
+      },
+      warning: (adminEmail.sent && customerEmail.sent)
+        ? undefined
+        : 'The booking was saved, but one or more emails could not be delivered.',
     });
   } catch (error) {
     console.error('[Lead Submit] Failed:', {
