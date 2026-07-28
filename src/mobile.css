@@ -313,43 +313,52 @@
   }
 
   /* ==========================================================================
-     5. Product Card (Marketplace Style)
+     5. Product Card (Marketplace Style) & 2x2 Services Grid
      ========================================================================== */
-  /* If it's not a rail, just 1 column */
-  .services-grid:not(.experience-rail) {
+  /* Services Grid 2x2 layout on mobile */
+  .services-grid,
+  .product-grid,
+  .featured-services-grid,
+  .workshop-grid {
     display: grid !important;
-    grid-template-columns: 1fr !important;
-    gap: 24px !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
   }
 
-  .service-card {
+  .service-card,
+  .product-card {
+    display: flex !important;
+    flex-direction: column !important;
     width: 100% !important;
-    min-width: 0;
-    overflow: hidden;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    border-radius: 14px !important;
     border: 0 !important;
-    border-radius: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
     -webkit-tap-highlight-color: transparent;
-    display: flex;
-    flex-direction: column;
   }
 
-  .service-image {
-    position: relative;
-    overflow: hidden;
+  .service-image,
+  .service-card__media,
+  .product-card__media {
+    position: relative !important;
+    width: 100% !important;
+    aspect-ratio: 1 / 0.82 !important;
+    overflow: hidden !important;
     border-radius: var(--mobile-card-radius) !important;
-    background: var(--mobile-surface-soft);
-    display: block;
-    aspect-ratio: 4 / 3 !important;
+    background: var(--mobile-surface-soft) !important;
+    display: block !important;
     height: auto !important;
   }
 
-  .service-image img {
-    display: block;
-    width: 100%;
+  .service-image img,
+  .service-card__image,
+  .product-card__image {
+    display: block !important;
+    width: 100% !important;
     height: 100% !important;
-    object-fit: cover;
+    object-fit: cover !important;
     transition: transform 220ms ease;
   }
 
@@ -359,78 +368,119 @@
 
   .service-card__badge {
     position: absolute;
-    top: 12px !important;
-    left: 12px !important;
+    top: 8px !important;
+    left: 8px !important;
     right: auto !important;
-    max-width: calc(100% - 72px);
-    padding: 6px 10px !important;
-    border-radius: 8px !important;
+    max-width: calc(100% - 16px);
+    padding: 4px 8px !important;
+    border-radius: 6px !important;
     background: #fff !important;
     color: var(--green-darkest) !important;
-    font-size: 0.75rem !important;
+    font-size: 0.65rem !important;
     font-weight: 700 !important;
     box-shadow: 0 2px 8px rgba(0,0,0,0.14) !important;
   }
 
-  .service-body {
-    display: grid;
-    gap: 7px;
-    padding: 12px 2px 0 !important;
+  .service-body,
+  .service-card__content,
+  .product-card__content {
+    display: flex !important;
+    flex: 1 !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+    padding: 12px 4px 0 !important;
   }
 
   .service-category {
     margin: 0;
-    font-size: 0.8125rem !important;
+    font-size: 0.75rem !important;
     color: var(--mobile-muted) !important;
     text-transform: uppercase;
     font-weight: 700;
   }
 
-  .service-body h3 {
-    display: -webkit-box;
+  .service-body h3,
+  .service-card__title,
+  .product-card__title {
+    display: -webkit-box !important;
     margin: 0 !important;
-    overflow: hidden;
-    font-size: 1rem !important;
+    overflow: hidden !important;
+    font-size: 0.9375rem !important;
     font-weight: 700 !important;
     line-height: 1.35 !important;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
   }
 
-  .service-meta {
+  .service-meta,
+  .service-card__description,
+  .product-card__description {
+    display: -webkit-box !important;
+    overflow: hidden !important;
     margin: 0 !important;
     font-size: 0.8125rem !important;
+    line-height: 1.4 !important;
     color: var(--mobile-muted) !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+  }
+
+  .service-card__price-row,
+  .service-card__price,
+  .product-card__price {
     display: flex !important;
+    align-items: flex-end !important;
+    justify-content: space-between !important;
     gap: 8px !important;
-    flex-wrap: wrap;
+    margin-top: auto !important;
+    padding-top: 6px !important;
   }
 
-  .service-card__price-row {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 12px;
-    margin-top: 3px;
-  }
-
-  .service-card__price {
-    font-size: 1rem;
-    font-weight: 800;
-    color: #111827;
+  .service-card__price,
+  .product-card__price {
+    font-size: 0.9375rem !important;
+    font-weight: 800 !important;
+    color: #111827 !important;
   }
 
   .service-card__price-prefix {
-    display: block;
-    font-size: 0.75rem;
-    font-weight: 400;
-    color: var(--mobile-muted);
+    display: none !important;
   }
 
-  /* Hide desktop price overlay and view details link on mobile card */
+  /* Hide extra card info on mobile */
   .service-image > span,
-  .service-body > .text-link {
+  .service-body > .text-link,
+  .service-card__long-description,
+  .service-card__extra-meta,
+  .service-card__secondary-action {
     display: none !important;
+  }
+
+  /* Very small screens */
+  @media (max-width: 359px) {
+    .services-grid,
+    .product-grid,
+    .featured-services-grid,
+    .workshop-grid {
+      gap: 8px !important;
+    }
+
+    .service-body,
+    .service-card__content,
+    .product-card__content {
+      padding: 10px 0 0 !important;
+    }
+
+    .service-body h3,
+    .service-card__title,
+    .product-card__title {
+      font-size: 0.875rem !important;
+    }
+
+    .service-card__price,
+    .product-card__price {
+      font-size: 0.875rem !important;
+    }
   }
 
   /* ==========================================================================
@@ -567,7 +617,7 @@
   }
 
   /* ==========================================================================
-     8. Bottom-Sheet Booking Modal
+     8. Bottom-Sheet Booking Modal & Form Rules
      ========================================================================== */
   .modal-overlay,
   .modal-backdrop,
@@ -601,50 +651,155 @@
     background: #d1d5db;
   }
 
-  .booking-form-grid,
+  /* Form Layout Overrides to Prevent Squishing */
   .form-grid,
-  .two-column-form {
+  .booking-form-grid,
+  .product-form-grid,
+  .contact-form-grid,
+  .settings-grid,
+  .field-grid-2,
+  .admin-package-row,
+  .contact-page-layout form {
     display: grid !important;
     grid-template-columns: 1fr !important;
     gap: 16px !important;
   }
 
-  .form-field {
-    width: 100% !important;
+  .form-row,
+  .field-row,
+  .control-row {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 16px !important;
   }
 
-  .booking-form input,
-  .booking-form select,
-  .booking-form textarea {
+  .form-row > *,
+  .field-row > *,
+  .control-row > * {
+    min-width: 0 !important;
+    flex: 1 1 100% !important;
+  }
+
+  .form-row--compact > *,
+  .small-fields-row > * {
+    flex: 1 1 calc(50% - 8px) !important;
+  }
+
+  .form-field,
+  .form-group,
+  .input-group,
+  .premium-input-wrap {
     width: 100% !important;
-    min-height: 50px !important;
+    min-width: 0 !important;
+  }
+
+  .form-field label,
+  .form-group label,
+  .premium-label,
+  form label {
+    display: block !important;
+    margin-bottom: 8px !important;
+    font-size: 0.9375rem !important;
+    font-weight: 600 !important;
+    line-height: 1.3 !important;
+  }
+
+  .form-field input,
+  .form-field select,
+  .form-field textarea,
+  .form-group input,
+  .form-group select,
+  .form-group textarea,
+  form input:not([type="checkbox"]):not([type="radio"]),
+  form select,
+  form textarea {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 48px !important;
     padding: 12px 14px !important;
-    border: 1px solid var(--mobile-border) !important;
     border-radius: 12px !important;
     font-size: 16px !important;
+    line-height: 1.4 !important;
+    appearance: auto;
   }
 
-  .booking-price-summary {
+  .form-field textarea,
+  .form-group textarea,
+  form textarea {
+    min-height: 120px !important;
+    resize: vertical !important;
+  }
+
+  /* Fixed Input Prefix/Suffix */
+  .price-input-group,
+  .input-with-prefix,
+  .input-with-suffix,
+  .premium-input-wrap {
     display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) auto !important;
+    align-items: stretch !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    gap: 0 !important;
+  }
+
+  .price-input-group > input,
+  .premium-input-wrap > input {
+    grid-column: 2;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .premium-input-wrap > svg {
+    grid-column: 1;
+    align-self: center;
+    margin: 0 12px;
+  }
+
+  .price-prefix,
+  .price-suffix,
+  .input-prefix,
+  .input-suffix {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 48px !important;
+    padding-inline: 12px !important;
+    white-space: nowrap !important;
+  }
+
+  @media (max-width: 420px) {
+    .price-input-group {
+      grid-template-columns: 1fr !important;
+      gap: 8px !important;
+    }
+    .price-prefix,
+    .price-suffix {
+      min-height: 40px !important;
+      justify-content: flex-start !important;
+      border-radius: 10px !important;
+    }
+  }
+
+  .field-with-button {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
     gap: 10px !important;
-    margin-top: 20px !important;
-    padding: 16px !important;
-    border-radius: 14px !important;
-    background: var(--mobile-surface-soft) !important;
   }
 
-  .booking-price-row {
-    display: flex !important;
-    justify-content: space-between !important;
-    gap: 16px !important;
-    font-size: 0.9375rem !important;
+  .field-with-button button {
+    width: 100% !important;
+    min-height: 46px !important;
   }
 
-  .booking-price-total {
-    padding-top: 12px !important;
-    border-top: 1px solid var(--mobile-border) !important;
-    font-size: 1.125rem !important;
-    font-weight: 800 !important;
+  .form-section + .form-section {
+    margin-top: 24px !important;
+  }
+
+  .field-error {
+    margin-top: 6px !important;
+    font-size: 0.8125rem !important;
+    line-height: 1.35 !important;
   }
 
   /* ==========================================================================
