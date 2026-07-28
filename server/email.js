@@ -160,6 +160,20 @@ export async function sendAdminBookingNotification(context) {
   if (!resend)                return { sent: false, reason: 'email-provider-not-configured' };
   if (!adminNotificationEmail) return { sent: false, reason: 'admin-recipient-not-configured' };
 
+  // Resend Free tier: can only send to the account owner's address.
+  // Set RESEND_DOMAIN_VERIFIED=true after verifying a domain at resend.com/domains.
+  const resendOwnerEmail = String(process.env.RESEND_OWNER_EMAIL || '').trim().toLowerCase();
+  const domainVerified   = String(process.env.RESEND_DOMAIN_VERIFIED || 'false').trim().toLowerCase() === 'true';
+
+  if (!domainVerified && resendOwnerEmail && adminNotificationEmail.toLowerCase() !== resendOwnerEmail) {
+    console.warn('[Email] Admin notification skipped: Resend domain not yet verified. ADMIN_NOTIFICATION_EMAIL must match RESEND_OWNER_EMAIL until domain is verified.', {
+      referenceCode: context.referenceCode,
+      adminEmail: adminNotificationEmail,
+      ownerEmail: resendOwnerEmail,
+    });
+    return { sent: false, reason: 'resend-domain-not-verified' };
+  }
+
   const unitFmt  = formatMoney(context.unitPrice,  context.currency);
   const totalFmt = formatMoney(context.totalAmount, context.currency);
 
