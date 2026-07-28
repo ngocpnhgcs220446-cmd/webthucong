@@ -488,23 +488,34 @@
      ========================================================================== */
   .section-header {
     display: flex !important;
-    align-items: flex-end !important;
-    justify-content: space-between !important;
-    gap: 12px !important;
-    margin-bottom: 16px !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    margin-bottom: 24px !important;
     text-align: left !important;
+  }
+
+  .section-header.center {
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  .section-header .eyebrow {
+    margin-bottom: 4px !important;
   }
 
   .section-header h2 {
     margin: 0 !important;
     font-size: 1.5rem !important;
-    line-height: 1.2 !important;
+    line-height: 1.25 !important;
     letter-spacing: -0.02em;
   }
 
   .section-header p {
-    margin-top: 6px !important;
+    margin: 6px 0 0 0 !important;
     font-size: 0.9375rem !important;
+    line-height: 1.5 !important;
     color: var(--mobile-muted) !important;
   }
 
@@ -1091,7 +1102,8 @@
   /* ==========================================================================
      12. Service Detail Gallery
      ========================================================================== */
-  .gallery-grid {
+  .service-bento-gallery {
+    display: grid !important;
     grid-template-columns: 2fr 1fr !important;
     gap: 4px !important;
     height: 260px !important;
@@ -1103,8 +1115,19 @@
   }
 
   /* Adjust the inner gap for the side images wrapper */
-  .gallery-grid > div:nth-child(2) {
+  .service-bento-gallery > div:nth-child(2) {
     gap: 4px !important;
+  }
+
+  /* Keep Home page masonry gallery looking like desktop */
+  .gallery-grid {
+    column-count: 2 !important;
+    column-gap: 12px !important;
+    padding-bottom: 16px !important;
+  }
+  
+  .gallery-grid .gallery-item {
+    margin-bottom: 12px !important;
   }
 
   .bento-box {
