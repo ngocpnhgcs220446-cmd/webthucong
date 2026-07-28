@@ -11,6 +11,8 @@ import {
 import AdminImageUploader from './AdminImageUploader';
 import AdminEditableList from './AdminEditableList';
 import { uploadImage } from '../../utils/apiFetch';
+import { parseProductPrice, productPriceToInput, normalizeVndInput } from '../../utils/priceUtils';
+import { formatCurrency } from '../../utils/formatCurrency';
 
 function SectionGroup({ title, description, children }) {
   return (
@@ -71,8 +73,16 @@ function safeArr(val) {
 
 function normalizeService(s) {
   if (!s) return null;
+  const currency = s.currency || 'VND';
+  const packages = safeArr(s.packages).map(pkg => ({
+    ...pkg,
+    price: productPriceToInput(pkg.price, pkg.currency || currency)
+  }));
   return {
     ...s,
+    currency,
+    price: productPriceToInput(s.price, currency),
+    defaultEstimatedPrice: productPriceToInput(s.defaultEstimatedPrice, currency),
     gallery: safeArr(s.gallery),
     highlights: safeArr(s.highlights),
     includes: safeArr(s.includes),
@@ -85,7 +95,7 @@ function normalizeService(s) {
     experienceTags: safeArr(s.experienceTags),
     bookingTags: safeArr(s.bookingTags),
     priorityTags: safeArr(s.priorityTags),
-    packages: safeArr(s.packages),
+    packages: packages,
     reviews: safeArr(s.reviews),
     sortOrder: s.sortOrder ?? 0,
     active: s.active !== undefined ? s.active : true,
@@ -94,7 +104,6 @@ function normalizeService(s) {
     reserveNowPayLater: s.reserveNowPayLater !== undefined ? s.reserveNowPayLater : true,
     wheelchairAccessible: s.wheelchairAccessible || false,
     smallGroup: s.smallGroup || false,
-    defaultEstimatedPrice: s.defaultEstimatedPrice ?? '',
     groupLimit: s.groupLimit ?? '',
     minGuests: s.minGuests ?? '',
     maxGuests: s.maxGuests ?? '',
@@ -112,19 +121,6 @@ function normalizeService(s) {
   };
 }
 
-function parsePriceInput(value, currency = 'USD') {
-  const text = String(value ?? '').trim();
-  if (!text) return NaN;
-
-  if (currency === 'VND') {
-    const normalized = text.replace(/[^\d-]/g, '');
-    return Number(normalized);
-  }
-
-  const normalized = text.replace(/,/g, '').replace(/[^\d.-]/g, '');
-  return Number(normalized);
-}
-
 function validateProductForm(form) {
   const nextErrors = {};
 
@@ -133,15 +129,14 @@ function validateProductForm(form) {
   const description = String(form.description || '').trim();
   const category = String(form.category || form.categoryId || '').trim();
   const currency = String(form.currency || '').trim().toUpperCase();
-  const rawPrice = String(form.price ?? '').trim();
-  const price = parsePriceInput(rawPrice, currency);
+  const price = parseProductPrice(form.price, currency);
 
   if (!title) nextErrors.title = 'Product name is required.';
   if (!shortDescription) nextErrors.shortDescription = 'Short description is required.';
   if (!description) nextErrors.description = 'Description is required.';
   if (!category) nextErrors.category = 'Please select a category.';
   
-  if (!rawPrice) {
+  if (!String(form.price || '').trim()) {
     nextErrors.price = 'Price is required.';
   } else if (!Number.isFinite(price)) {
     nextErrors.price = 'Enter a valid price.';
@@ -194,9 +189,28 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
 
   const handleChange = (e) => {
     let { name, value, type, checked } = e.target;
-    if (name === 'defaultEstimatedPrice') {
-      value = value.replace(/[^0-9.]/g, ''); // numeric only
+
+    if (name === 'currency') {
+      setFormData(prev => ({
+        ...prev,
+        currency: value,
+        price: '',
+        defaultEstimatedPrice: '',
+        packages: prev.packages.map(pkg => ({ ...pkg, currency: value, price: '' }))
+      }));
+      setErrors(current => ({
+        ...current,
+        price: 'Please enter the price again for the selected currency.'
+      }));
+      return;
     }
+
+    if ((name === 'price' || name === 'defaultEstimatedPrice') && formData.currency === 'VND') {
+      value = normalizeVndInput(value);
+    } else if ((name === 'price' || name === 'defaultEstimatedPrice') && formData.currency === 'USD') {
+      value = value.replace(/[^0-9.]/g, ''); // numeric and dot only
+    }
+
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
@@ -241,7 +255,22 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
 
   const updatePackage = (index, field, value) => {
     const newPackages = [...formData.packages];
-    if (field === 'price') value = value.replace(/[^0-9.]/g, '');
+    
+    if (field === 'currency') {
+      newPackages[index].currency = value;
+      newPackages[index].price = '';
+      setFormData(prev => ({ ...prev, packages: newPackages }));
+      return;
+    }
+    
+    if (field === 'price') {
+      const pkgCurrency = newPackages[index].currency || formData.currency || 'USD';
+      if (pkgCurrency === 'VND') {
+        value = normalizeVndInput(value);
+      } else {
+        value = value.replace(/[^0-9.]/g, '');
+      }
+    }
     newPackages[index][field] = value;
     setFormData(prev => ({ ...prev, packages: newPackages }));
   };
@@ -294,12 +323,16 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
     setIsSaving(true);
     
     try {
-      const price = parsePriceInput(formData.price, formData.currency);
+      const price = parseProductPrice(formData.price, formData.currency);
       const payload = { 
         ...formData,
         title: String(formData.title || formData.name).trim(),
         price,
         currency: String(formData.currency).toUpperCase(),
+        packages: formData.packages.map(pkg => ({
+          ...pkg,
+          price: parseProductPrice(pkg.price, pkg.currency || formData.currency)
+        }))
       };
       
       if (mode === 'create') {
@@ -307,8 +340,12 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
         delete payload.createdAt;
         delete payload.updatedAt;
       }
-      if (payload.defaultEstimatedPrice === '') payload.defaultEstimatedPrice = null;
-      else payload.defaultEstimatedPrice = parseFloat(payload.defaultEstimatedPrice);
+      
+      if (payload.defaultEstimatedPrice === '') {
+        payload.defaultEstimatedPrice = null;
+      } else {
+        payload.defaultEstimatedPrice = parseProductPrice(payload.defaultEstimatedPrice, formData.currency);
+      }
       
       await onSave(payload);
     } catch (error) {
@@ -553,9 +590,22 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
             <SectionGroup title="General Pricing" description="The starting price shown on product cards across the site.">
               <div className="field-grid-2">
                 <div className="form-field">
-                  <label>Base Price Value <span style={{color: 'red'}}>*</span></label>
-                  <input name="price" type="text" value={formData.price} onChange={handleChange} placeholder="e.g. 50 or 50.00" style={{ border: errors.price ? '1px solid red' : '' }} aria-invalid={!!errors.price} />
-                  {errors.price && <span style={{ color: 'red', fontSize: '13px', marginTop: '4px' }}>{errors.price}</span>}
+                  <label htmlFor="priceInput">Base Price Value <span style={{color: 'red'}}>*</span></label>
+                  <div className="price-input-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input id="priceInput" name="price" type="text" inputMode={formData.currency === 'VND' ? 'numeric' : 'decimal'} value={formData.price} onChange={handleChange} placeholder={formData.currency === 'VND' ? '500' : '50.00'} style={{ border: errors.price ? '1px solid red' : '', flex: 1 }} aria-invalid={!!errors.price} />
+                    <span style={{ fontWeight: 600, color: '#475569', minWidth: '80px' }}>
+                      {formData.currency === 'VND' ? ',000 VND' : 'USD'}
+                    </span>
+                  </div>
+                  {errors.price && <span style={{ color: 'red', fontSize: '13px', marginTop: '4px', display: 'block' }}>{errors.price}</span>}
+                  {(() => {
+                    const parsed = parseProductPrice(formData.price, formData.currency);
+                    return Number.isFinite(parsed) ? (
+                      <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
+                        Display price: <strong style={{ color: '#0f172a' }}>{formatCurrency(parsed, formData.currency)}</strong>
+                      </p>
+                    ) : null;
+                  })()}
                 </div>
                 <div className="form-field">
                   <label>Currency <span style={{color: 'red'}}>*</span></label>
@@ -568,7 +618,20 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
               </div>
               <div className="form-field">
                 <label>Old Estimated Price (Optional)</label>
-                <input name="defaultEstimatedPrice" type="number" step="0.01" value={formData.defaultEstimatedPrice || ''} onChange={handleChange} placeholder="Optional" />
+                <div className="price-input-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input name="defaultEstimatedPrice" type="text" inputMode={formData.currency === 'VND' ? 'numeric' : 'decimal'} value={formData.defaultEstimatedPrice || ''} onChange={handleChange} placeholder="Optional" style={{ flex: 1 }} />
+                  <span style={{ fontWeight: 600, color: '#475569', minWidth: '80px' }}>
+                    {formData.currency === 'VND' ? ',000 VND' : 'USD'}
+                  </span>
+                </div>
+                {(() => {
+                  const parsed = parseProductPrice(formData.defaultEstimatedPrice, formData.currency);
+                  return formData.defaultEstimatedPrice && Number.isFinite(parsed) ? (
+                    <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
+                      Display price: <strong style={{ color: '#0f172a' }}>{formatCurrency(parsed, formData.currency)}</strong>
+                    </p>
+                  ) : null;
+                })()}
               </div>
             </SectionGroup>
 
@@ -603,11 +666,24 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px', marginTop: '16px', paddingRight: '40px' }}>
                         <div className="form-field">
                           <label>Base Price</label>
-                          <input type="number" step="0.01" value={pkg.price} onChange={(e) => updatePackage(index, 'price', e.target.value)} />
+                          <div className="price-input-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <input type="text" inputMode={pkg.currency === 'VND' || (!pkg.currency && formData.currency === 'VND') ? 'numeric' : 'decimal'} value={pkg.price} onChange={(e) => updatePackage(index, 'price', e.target.value)} style={{ flex: 1 }} />
+                            <span style={{ fontWeight: 600, color: '#475569', minWidth: '40px', fontSize: '13px' }}>
+                              {(pkg.currency || formData.currency || 'USD') === 'VND' ? ',000' : 'USD'}
+                            </span>
+                          </div>
+                          {(() => {
+                            const parsed = parseProductPrice(pkg.price, pkg.currency || formData.currency);
+                            return Number.isFinite(parsed) ? (
+                              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>
+                                <strong style={{ color: '#0f172a' }}>{formatCurrency(parsed, pkg.currency || formData.currency)}</strong>
+                              </p>
+                            ) : null;
+                          })()}
                         </div>
                         <div className="form-field">
                           <label>Currency</label>
-                          <select value={pkg.currency || 'VND'} onChange={(e) => updatePackage(index, 'currency', e.target.value)}>
+                          <select value={pkg.currency || formData.currency || 'VND'} onChange={(e) => updatePackage(index, 'currency', e.target.value)}>
                             <option value="VND">VND</option>
                             <option value="USD">USD</option>
                           </select>
