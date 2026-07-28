@@ -312,7 +312,7 @@ export default function Home() {
           <section className="section soft-bg">
             <div className="container">
               <ScrollReveal>
-                <SectionHeader align="center" eyebrow="Testimonials" title="Loved by Travellers" description="See what our guests are saying about their cultural experience." />
+                <SectionHeader className="testimonials-header" align="center" eyebrow="Testimonials" title="Loved by Travellers" description="See what our guests are saying about their cultural experience." />
               </ScrollReveal>
               <div className="testimonial-grid">
                 {testimonials.map((t, i) => (
