@@ -332,9 +332,11 @@ export default function Contact() {
           pointer-events: none;
         }
 
-        .premium-input-wrap input, .premium-input-wrap select, .premium-input-wrap textarea {
-          padding-left: 48px;
-          padding-right: 16px;
+        .contact-page-layout .premium-input-wrap input, 
+        .contact-page-layout .premium-input-wrap select, 
+        .contact-page-layout .premium-input-wrap textarea {
+          padding-left: 48px !important;
+          padding-right: 16px !important;
           width: 100%;
           border: 1px solid #e5e7eb;
           border-radius: 16px;
