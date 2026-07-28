@@ -566,29 +566,67 @@ app.get('/api/services/slug/:slug', async (req, res) => {
   }
 });
 
+const allowedCurrencies = new Set(['USD', 'VND']);
+function validateProductPayload(body) {
+  const fieldErrors = {};
+
+  const title = String(body.title || body.name || '').trim();
+  const description = String(body.description || '').trim();
+  const shortDescription = String(body.shortDescription || body.summary || '').trim();
+  const currency = String(body.currency || '').trim().toUpperCase();
+  const price = Number(body.price);
+
+  if (!title) {
+    fieldErrors.title = 'Product name is required.';
+  }
+  if (!shortDescription) {
+    fieldErrors.shortDescription = 'Short description is required.';
+  }
+  if (!description) {
+    fieldErrors.description = 'Description is required.';
+  }
+  if (!body.category) {
+    fieldErrors.category = 'Please select a category.';
+  }
+  if (!Number.isFinite(price)) {
+    fieldErrors.price = 'Price must be a valid number.';
+  } else if (price < 0) {
+    fieldErrors.price = 'Price cannot be negative.';
+  }
+  if (!allowedCurrencies.has(currency)) {
+    fieldErrors.currency = 'Currency must be USD or VND.';
+  }
+  
+  if (!body.imageUrl && !body.imageFile && !body.existingImageUrl) {
+    fieldErrors.image = 'A product image is required.';
+  }
+
+  return {
+    fieldErrors,
+    normalized: {
+      title,
+      shortDescription,
+      description,
+      price,
+      currency,
+    },
+  };
+}
+
 // Create a new service
 app.post('/api/admin/services', authMiddleware, async (req, res) => {
   try {
+    const { fieldErrors, normalized } = validateProductPayload(req.body);
+
+    if (Object.keys(fieldErrors).length > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Please correct the highlighted fields.', 
+        fieldErrors 
+      });
+    }
+
     const data = req.body || {};
-    const errors = {};
-
-    if (!data.title?.trim()) errors.title = 'Title is required';
-    if (!data.category?.trim()) errors.category = 'Category is required';
-    if (!data.price || !String(data.price).trim()) {
-      errors.price = 'Price is required';
-    } else {
-      data.price = String(data.price);
-    }
-
-    data.slug = valid.createSlug(data.slug || data.title);
-    if (!data.slug) errors.slug = 'Slug is required';
-
-    if (Object.keys(errors).length > 0) return res.status(400).json({ error: 'Validation failed', fields: errors });
-
-    if (data.minGuests && data.maxGuests && parseInt(data.minGuests) > parseInt(data.maxGuests)) {
-      return res.status(400).json({ error: 'Validation failed', fields: { maxGuests: 'maxGuests must be >= minGuests' } });
-    }
-
     let isFeatured = data.featured || false;
     let status = data.status || 'draft';
 
@@ -605,13 +643,19 @@ app.post('/api/admin/services', authMiddleware, async (req, res) => {
       }
     }
 
+    if (data.minGuests && data.maxGuests && parseInt(data.minGuests) > parseInt(data.maxGuests)) {
+      return res.status(400).json({ error: 'Validation failed', fields: { maxGuests: 'maxGuests must be >= minGuests' } });
+    }
+
+
     const newService = await prisma.service.create({
       data: {
-        slug: data.slug,
+        slug: valid.createSlug(normalized.title),
         category: data.category,
-        title: data.title,
+        title: normalized.title,
         subtitle: data.subtitle || '',
-        price: data.price ? String(data.price) : '',
+        price: String(normalized.price),
+        currency: normalized.currency,
         duration: data.duration || '',
         groupSize: data.groupSize || '',
         location: data.location || '',
@@ -709,33 +753,24 @@ app.put('/api/admin/services/:id', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Service not found.' });
     }
 
-    const errors = {};
-    if (data.title !== undefined && !String(data.title).trim()) errors.title = 'Title is required';
-    if (data.category !== undefined && !String(data.category).trim()) errors.category = 'Category is required';
+    const { fieldErrors, normalized } = validateProductPayload(req.body);
 
-    if (data.price !== undefined) {
-      if (!String(data.price).trim()) {
-        errors.price = 'Price is required';
-      } else {
-        data.price = String(data.price);
-      }
-    }
-
-    if (data.slug !== undefined) {
-      data.slug = valid.createSlug(data.slug);
-      if (!data.slug) errors.slug = 'Slug is required';
-    }
-
-    if (Object.keys(errors).length > 0) return res.status(400).json({ error: 'Validation failed', fields: errors });
-
-    if (data.minGuests && data.maxGuests && parseInt(data.minGuests) > parseInt(data.maxGuests)) {
-      return res.status(400).json({ error: 'Validation failed', fields: { maxGuests: 'maxGuests must be >= minGuests' } });
+    if (Object.keys(fieldErrors).length > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Please correct the highlighted fields.', 
+        fieldErrors 
+      });
     }
 
     let isFeatured = data.featured !== undefined ? data.featured : existingService.featured;
     let status = data.status !== undefined ? data.status : existingService.status;
     if (status !== 'published') {
       isFeatured = false;
+    }
+
+    if (data.minGuests && data.maxGuests && parseInt(data.minGuests) > parseInt(data.maxGuests)) {
+      return res.status(400).json({ error: 'Validation failed', fields: { maxGuests: 'maxGuests must be >= minGuests' } });
     }
 
     if (isFeatured) {
@@ -750,11 +785,12 @@ app.put('/api/admin/services/:id', authMiddleware, async (req, res) => {
     const updatedService = await prisma.service.update({
       where: { id },
       data: {
-        slug: data.slug || existingService.slug,
+        slug: data.slug ? valid.createSlug(data.slug) : existingService.slug,
         category: data.category || existingService.category,
-        title: data.title || existingService.title,
+        title: normalized.title || existingService.title,
         subtitle: data.subtitle || existingService.subtitle,
-        price: data.price || existingService.price,
+        price: String(normalized.price),
+        currency: normalized.currency,
         duration: data.duration || existingService.duration,
         groupSize: data.groupSize || existingService.groupSize,
         location: data.location || existingService.location,

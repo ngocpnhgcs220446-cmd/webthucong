@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Clock, MapPin, Users, Star } from 'lucide-react';
 
+import { formatCurrency } from '../utils/formatCurrency';
+
 export default function ServiceCard({ service }) {
   return (
     <article className="service-card">
@@ -11,7 +13,7 @@ export default function ServiceCard({ service }) {
             <Star size={14} fill="currentColor" /> {service.priorityTags && service.priorityTags.length > 0 ? service.priorityTags[0] : 'Signature'}
           </div>
         )}
-        <span>{/^\d+(\.\d+)?$/.test(String(service.price).trim()) ? `From $${service.price} / person` : service.price}</span>
+        <span>From {formatCurrency(service.price, service.currency)} / person</span>
       </Link>
       <div className="service-body">
         <p className="service-category">{service.category}</p>

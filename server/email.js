@@ -45,8 +45,8 @@ function escapeHtml(value) {
 }
 
 function formatMoney(amount, currency) {
-  const cur = currency || 'VND';
-  return new Intl.NumberFormat('vi-VN', {
+  const cur = String(currency || 'VND').toUpperCase();
+  return new Intl.NumberFormat(cur === 'VND' ? 'vi-VN' : 'en-US', {
     style: 'currency',
     currency: cur,
     maximumFractionDigits: cur === 'VND' ? 0 : 2,

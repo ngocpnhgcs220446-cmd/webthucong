@@ -3,6 +3,7 @@ import { X, CalendarDays, Users, Tag, Clock, ChevronDown } from 'lucide-react';
 import { trackEvent } from '../utils/analytics';
 import { submitLeadAPI } from '../utils/apiUtils';
 import * as valid from '../utils/validation';
+import { formatCurrency } from '../utils/formatCurrency';
 import toast from 'react-hot-toast';
 
 const initialForm = {
@@ -130,7 +131,7 @@ export default function InquiryModal({ service, selectedPackage, onClose }) {
                 <h3 style={{ margin: '0 0 8px 0', fontSize: '18px' }}>{service.title}</h3>
                 {selectedPackage ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-light)', fontSize: '14px' }}>
-                    <Tag size={16} /> <strong>Package:</strong> {selectedPackage.name} - {selectedPackage.priceLabel || `${selectedPackage.price} ${selectedPackage.currency}`}
+                    <Tag size={16} /> <strong>Package:</strong> {selectedPackage.name} - {selectedPackage.priceLabel || formatCurrency(selectedPackage.price, selectedPackage.currency)}
                   </div>
                 ) : (
                   <div style={{ color: 'var(--text-light)', fontSize: '14px' }}>General inquiry</div>

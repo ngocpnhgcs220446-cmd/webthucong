@@ -112,15 +112,64 @@ function normalizeService(s) {
   };
 }
 
+function parsePriceInput(value, currency = 'USD') {
+  const text = String(value ?? '').trim();
+  if (!text) return NaN;
+
+  if (currency === 'VND') {
+    const normalized = text.replace(/[^\d-]/g, '');
+    return Number(normalized);
+  }
+
+  const normalized = text.replace(/,/g, '').replace(/[^\d.-]/g, '');
+  return Number(normalized);
+}
+
+function validateProductForm(form) {
+  const nextErrors = {};
+
+  const title = String(form.title || form.name || '').trim();
+  const shortDescription = String(form.shortDescription || form.summary || '').trim();
+  const description = String(form.description || '').trim();
+  const category = String(form.category || form.categoryId || '').trim();
+  const currency = String(form.currency || '').trim().toUpperCase();
+  const rawPrice = String(form.price ?? '').trim();
+  const price = parsePriceInput(rawPrice, currency);
+
+  if (!title) nextErrors.title = 'Product name is required.';
+  if (!shortDescription) nextErrors.shortDescription = 'Short description is required.';
+  if (!description) nextErrors.description = 'Description is required.';
+  if (!category) nextErrors.category = 'Please select a category.';
+  
+  if (!rawPrice) {
+    nextErrors.price = 'Price is required.';
+  } else if (!Number.isFinite(price)) {
+    nextErrors.price = 'Enter a valid price.';
+  } else if (price < 0) {
+    nextErrors.price = 'Price cannot be negative.';
+  }
+
+  if (!['USD', 'VND'].includes(currency)) {
+    nextErrors.currency = 'Please select USD or VND.';
+  }
+
+  if (!form.imageUrl && !form.imageFile && !form.existingImageUrl) {
+    nextErrors.image = 'A product image is required.';
+  }
+
+  return nextErrors;
+}
+
 export default function FullProductEditor({ service, mode, onClose, onSave }) {
   const [activeTab, setActiveTab] = useState('basic');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [errors, setErrors] = useState({});
+  const [submitError, setSubmitError] = useState('');
   const [formData, setFormData] = useState(
     normalizeService(service) || {
       title: '', slug: '', subtitle: '', description: '',
-      price: '', duration: '', groupSize: '', location: '',
+      price: '', currency: 'VND', duration: '', groupSize: '', location: '',
       category: PRODUCT_CATEGORIES[0].key, imageUrl: '', imagePublicId: '', featured: false,
       status: 'draft', sortOrder: 0, minGuests: '', maxGuests: '', defaultEstimatedPrice: '',
       groupName: '', shortDescription: '', fullDescription: '',
@@ -152,7 +201,14 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-    setErrors(prev => ({ ...prev, [name]: null }));
+    
+    setErrors(current => {
+      if (!current[name]) return current;
+      const next = { ...current };
+      delete next[name];
+      return next;
+    });
+    setSubmitError('');
   };
 
   const handleTitleBlur = () => {
@@ -219,21 +275,33 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
     e.preventDefault();
     if (isSaving) return;
     
-    const newErrors = {};
-    if (!formData.title) newErrors.title = 'Title is required';
-    if (!formData.slug) newErrors.slug = 'Slug is required';
-    if (!formData.price) newErrors.price = 'Price is required';
+    const newErrors = validateProductForm(formData);
     
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      setActiveTab('basic');
-      showToast({ type: 'error', title: 'Thiếu thông tin', message: 'Vui lòng kiểm tra các trường bắt buộc.' });
+      setSubmitError('Please complete the required fields before saving.');
+      
+      requestAnimationFrame(() => {
+        const firstInvalid = document.querySelector('[aria-invalid="true"]');
+        firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        firstInvalid?.focus();
+      });
       return;
     }
     
+    setErrors({});
+    setSubmitError('');
     setIsSaving(true);
+    
     try {
-      const payload = { ...formData };
+      const price = parsePriceInput(formData.price, formData.currency);
+      const payload = { 
+        ...formData,
+        title: String(formData.title || formData.name).trim(),
+        price,
+        currency: String(formData.currency).toUpperCase(),
+      };
+      
       if (mode === 'create') {
         delete payload.id;
         delete payload.createdAt;
@@ -244,15 +312,18 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
       
       await onSave(payload);
     } catch (error) {
-      if (error.fields) {
-        setErrors(error.fields);
-        if (error.fields.featured) setActiveTab('basic');
-        showToast({ type: 'error', title: 'Lỗi xác thực', message: 'Vui lòng kiểm tra lại thông tin form.' });
-      } else {
-        showToast({ type: 'error', title: 'Không thể lưu sản phẩm', message: getApiErrorMessage(error) });
+      const apiFieldErrors = error?.response?.data?.fieldErrors || error?.fieldErrors;
+      if (apiFieldErrors) {
+        setErrors(apiFieldErrors);
       }
+      setSubmitError(
+        error?.response?.data?.error || 
+        error?.message || 
+        'Product could not be saved. Please try again.'
+      );
+    } finally {
+      setIsSaving(false);
     }
-    setIsSaving(false);
   };
 
   return (
@@ -306,27 +377,36 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
         {/* Content */}
         <form id="productForm" onSubmit={handleSubmit} className="admin-form-body" style={{ flex: 1, overflowY: 'auto', background: '#f1f5f9' }}>
           
+          {submitError && (
+            <div style={{ margin: '16px 24px', padding: '16px', background: '#fee2e2', color: '#b91c1c', borderRadius: '8px', border: '1px solid #f87171', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <strong>Error:</strong> {submitError}
+            </div>
+          )}
+
           {/* TAB: BASIC */}
           <div style={{ display: activeTab === 'basic' ? 'block' : 'none' }}>
             <SectionGroup title="Main Identity" description="Core details used to identify this product on the platform.">
               <div className="field-grid-2">
                 <div className="form-field">
                   <label>Product Name <span style={{color: 'red'}}>*</span></label>
-                  <input name="title" value={formData.title} onChange={handleChange} onBlur={handleTitleBlur} style={{ border: errors.title ? '1px solid red' : '' }} required placeholder="e.g. Traditional Lion Head Crafting" />
-                  {errors.title && <span style={{ color: 'red', fontSize: '12px' }}>{errors.title}</span>}
+                  <input name="title" value={formData.title} onChange={handleChange} onBlur={handleTitleBlur} style={{ border: errors.title ? '1px solid red' : '' }} aria-invalid={!!errors.title} placeholder="e.g. Traditional Lion Head Crafting" />
+                  {errors.title && <span style={{ color: 'red', fontSize: '13px', marginTop: '4px' }}>{errors.title}</span>}
                 </div>
                 <div className="form-field">
                   <label>URL Slug <span style={{color: 'red'}}>*</span></label>
-                  <input name="slug" value={formData.slug} onChange={handleChange} style={{ border: errors.slug ? '1px solid red' : '' }} required placeholder="auto-generated-slug" />
+                  <input name="slug" value={formData.slug} onChange={handleChange} style={{ border: errors.slug ? '1px solid red' : '' }} aria-invalid={!!errors.slug} placeholder="auto-generated-slug" />
+                  {errors.slug && <span style={{ color: 'red', fontSize: '13px', marginTop: '4px' }}>{errors.slug}</span>}
                 </div>
               </div>
               
               <div className="field-grid-2">
                 <div className="form-field">
-                  <label>Category</label>
-                  <select name="category" value={formData.category} onChange={handleChange} style={{ border: errors.category ? '1px solid red' : '' }}>
+                  <label>Category <span style={{color: 'red'}}>*</span></label>
+                  <select name="category" value={formData.category} onChange={handleChange} style={{ border: errors.category ? '1px solid red' : '' }} aria-invalid={!!errors.category}>
+                    <option value="">Select a category</option>
                     {PRODUCT_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
                   </select>
+                  {errors.category && <span style={{ color: 'red', fontSize: '13px', marginTop: '4px' }}>{errors.category}</span>}
                 </div>
                 
                 <div className="form-field">
@@ -352,8 +432,9 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
               </div>
 
               <div className="form-field">
-                <label>Short Description</label>
-                <textarea name="shortDescription" value={formData.shortDescription} onChange={handleChange} rows="2" placeholder="A catchy one-liner..." style={{ minHeight: '60px' }} />
+                <label>Short Description <span style={{color: 'red'}}>*</span></label>
+                <textarea name="shortDescription" value={formData.shortDescription} onChange={handleChange} rows="2" placeholder="A catchy one-liner..." style={{ minHeight: '60px', border: errors.shortDescription ? '1px solid red' : '' }} aria-invalid={!!errors.shortDescription} />
+                {errors.shortDescription && <span style={{ color: 'red', fontSize: '13px', marginTop: '4px' }}>{errors.shortDescription}</span>}
               </div>
             </SectionGroup>
 
@@ -441,7 +522,7 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
                     }} />
                   </label>
                 </div>
-                {errors.imageUrl && <span style={{ color: 'red', fontSize: '12px', display: 'block', marginTop: 4 }}>{errors.imageUrl}</span>}
+                {errors.image && <span style={{ color: 'red', fontSize: '13px', display: 'block', marginTop: 8 }}>{errors.image}</span>}
               </div>
 
               <div className="form-field">
@@ -468,28 +549,26 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
             </SectionGroup>
           </div>
 
-{/* TAB: PRICING / PACKAGES */}
           <div style={{ display: activeTab === 'packages' ? 'block' : 'none' }}>
             <SectionGroup title="General Pricing" description="The starting price shown on product cards across the site.">
               <div className="field-grid-2">
                 <div className="form-field">
-                  <label>Display Price Text (Public)</label>
-                  <input name="price" value={formData.price} onChange={handleChange} placeholder="e.g. From $35 / person" style={{ border: errors.price ? '1px solid red' : '' }} />
-                  {errors.price && <span style={{ color: 'red', fontSize: '12px' }}>{errors.price}</span>}
+                  <label>Base Price Value <span style={{color: 'red'}}>*</span></label>
+                  <input name="price" type="text" value={formData.price} onChange={handleChange} placeholder="e.g. 50 or 50.00" style={{ border: errors.price ? '1px solid red' : '' }} aria-invalid={!!errors.price} />
+                  {errors.price && <span style={{ color: 'red', fontSize: '13px', marginTop: '4px' }}>{errors.price}</span>}
                 </div>
-                <div className="field-grid-2">
-                  <div className="form-field">
-                    <label>Base Price Value</label>
-                    <input name="defaultEstimatedPrice" type="number" step="0.01" value={formData.defaultEstimatedPrice || ''} onChange={handleChange} placeholder="35.00" />
-                  </div>
-                  <div className="form-field">
-                    <label>Currency</label>
-                    <select name="currency" value={formData.currency || 'USD'} onChange={handleChange}>
-                      <option value="USD">USD</option>
-                      <option value="VND">VND</option>
-                    </select>
-                  </div>
+                <div className="form-field">
+                  <label>Currency <span style={{color: 'red'}}>*</span></label>
+                  <select name="currency" value={formData.currency || 'VND'} onChange={handleChange} style={{ border: errors.currency ? '1px solid red' : '' }} aria-invalid={!!errors.currency}>
+                    <option value="VND">VND (₫)</option>
+                    <option value="USD">USD ($)</option>
+                  </select>
+                  {errors.currency && <span style={{ color: 'red', fontSize: '13px', marginTop: '4px' }}>{errors.currency}</span>}
                 </div>
+              </div>
+              <div className="form-field">
+                <label>Old Estimated Price (Optional)</label>
+                <input name="defaultEstimatedPrice" type="number" step="0.01" value={formData.defaultEstimatedPrice || ''} onChange={handleChange} placeholder="Optional" />
               </div>
             </SectionGroup>
 
@@ -528,7 +607,10 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
                         </div>
                         <div className="form-field">
                           <label>Currency</label>
-                          <input value={pkg.currency} onChange={(e) => updatePackage(index, 'currency', e.target.value)} />
+                          <select value={pkg.currency || 'VND'} onChange={(e) => updatePackage(index, 'currency', e.target.value)}>
+                            <option value="VND">VND</option>
+                            <option value="USD">USD</option>
+                          </select>
                         </div>
                         <div className="form-field">
                           <label>Duration override</label>
@@ -628,8 +710,9 @@ export default function FullProductEditor({ service, mode, onClose, onSave }) {
           <div style={{ display: activeTab === 'description' ? 'block' : 'none' }}>
             <SectionGroup title="Main Content">
               <div className="form-field">
-                <label>Full Description (HTML Supported)</label>
-                <textarea name="fullDescription" value={formData.fullDescription || formData.description} onChange={handleChange} rows="8" placeholder="<p>Detailed description here...</p>" style={{ fontFamily: 'monospace' }} />
+                <label>Full Description (HTML Supported) <span style={{color: 'red'}}>*</span></label>
+                <textarea name="description" value={formData.description} onChange={handleChange} rows="8" placeholder="<p>Detailed description here...</p>" style={{ fontFamily: 'monospace', border: errors.description ? '1px solid red' : '' }} aria-invalid={!!errors.description} />
+                {errors.description && <span style={{ color: 'red', fontSize: '13px', marginTop: '4px' }}>{errors.description}</span>}
               </div>
             </SectionGroup>
             

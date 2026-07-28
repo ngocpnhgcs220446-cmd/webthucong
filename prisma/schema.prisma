@@ -34,6 +34,7 @@ model Service {
   minGuests             Int?
   maxGuests             Int?
   defaultEstimatedPrice Float?
+  currency              String  @default("VND")
 
   // New Booking & Activity Page Fields
   groupName             String?

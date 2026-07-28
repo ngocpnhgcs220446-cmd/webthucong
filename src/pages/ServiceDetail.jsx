@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, CalendarDays, CheckCircle2, Clock, MapPin, MessageCircle, Users, Star, Info, XCircle, Map as MapIcon, ShieldCheck, Languages, Accessibility, ChevronRight, X, ChevronLeft } from 'lucide-react';
+import { ArrowLeft, CalendarDays, CheckCircle2, Clock, MapPin, MessageCircle, Users, Star, Info, XCircle, Map as MapIcon, ShieldCheck, Languages, Accessibility, ChevronRight, X, ChevronLeft, Shield, Calendar, CreditCard, ExternalLink } from 'lucide-react';
 import SEO from '../components/SEO';
 import InquiryModal from '../components/InquiryModal';
 import { useSettings } from '../context/SettingsContext';
+import { formatCurrency } from '../utils/formatCurrency';
 
 export default function ServiceDetail() {
   const { slug } = useParams();
@@ -443,7 +444,7 @@ export default function ServiceDetail() {
                         <div key={pkg.id} className="package-card" style={{ border: '2px solid #f3f4f6', borderRadius: '20px', padding: '24px', cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', flexDirection: 'column', gap: '16px', background: '#f9fafb' }} onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--green)'; e.currentTarget.style.background = '#fff'; }} onMouseLeave={e => { e.currentTarget.style.borderColor = '#f3f4f6'; e.currentTarget.style.background = '#f9fafb'; }} onClick={() => handleReserve(pkg)}>
                           <h4 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#111827' }}>{pkg.name}</h4>
                           <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--green-darkest)' }}>
-                            {pkg.priceLabel || (/^\d+(\.\d+)?$/.test(String(pkg.price).trim()) ? `$${pkg.price} / person` : `${pkg.price} ${pkg.currency}`)}
+                            {pkg.priceLabel || `${formatCurrency(pkg.price, pkg.currency)} / person`}
                           </div>
                           
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '15px', color: '#4b5563' }}>
@@ -462,7 +463,7 @@ export default function ServiceDetail() {
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                       <div style={{ fontSize: '32px', fontWeight: '800', color: '#111827' }}>
-                        {/^\d+(\.\d+)?$/.test(String(service.price).trim()) ? `From $${service.price} / person` : service.price}
+                        From {formatCurrency(service.price, service.currency)} / person
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#4b5563' }}><Clock size={20} color="var(--green)" /> {service.duration}</div>
