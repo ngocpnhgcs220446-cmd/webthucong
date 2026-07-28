@@ -323,7 +323,7 @@ export default function Contact() {
         .premium-input-wrap {
           position: relative;
         }
-        .premium-input-wrap > svg {
+        .premium-input-wrap > svg:first-of-type {
           position: absolute;
           left: 16px;
           top: 50%;
@@ -331,10 +331,7 @@ export default function Contact() {
           color: #9ca3af;
           pointer-events: none;
         }
-        .premium-input-wrap textarea ~ svg {
-          top: 18px;
-          transform: none;
-        }
+
         .premium-input-wrap input, .premium-input-wrap select, .premium-input-wrap textarea {
           padding-left: 48px;
           padding-right: 16px;
@@ -508,7 +505,7 @@ export default function Contact() {
                     <div>
                       <label htmlFor="ct-msg" className="premium-label">Message / Special Requests</label>
                       <div className="premium-input-wrap">
-                        <MessageCircle size={20} />
+                        <MessageCircle size={20} style={{ position: 'absolute', top: '16px', left: '16px', transform: 'none', color: '#9ca3af' }} />
                         <textarea id="ct-msg" rows="5" name="message" value={form.message} onChange={update} placeholder="Tell us about your preferences, budget, or any questions you have..." style={{ paddingTop: '16px' }} />
                       </div>
                     </div>
