@@ -744,8 +744,7 @@
   /* Fixed Input Prefix/Suffix */
   .price-input-group,
   .input-with-prefix,
-  .input-with-suffix,
-  .premium-input-wrap {
+  .input-with-suffix {
     display: grid !important;
     grid-template-columns: auto minmax(0, 1fr) auto !important;
     align-items: stretch !important;
@@ -754,18 +753,13 @@
     gap: 0 !important;
   }
 
-  .price-input-group > input,
-  .premium-input-wrap > input {
+  .price-input-group > input {
     grid-column: 2;
     min-width: 0 !important;
     width: 100% !important;
   }
 
-  .premium-input-wrap > svg {
-    grid-column: 1;
-    align-self: center;
-    margin: 0 12px;
-  }
+
 
   .price-prefix,
   .price-suffix,
