@@ -281,3 +281,14 @@ export const sendCustomerLeadConfirmation = sendCustomerBookingConfirmation;
 export async function verifySmtpConnection() {
   return { verified: true, reason: 'smtp-not-used' };
 }
+
+// Status change notification (admin-only; customer not notified for MVP)
+export async function sendCustomerStatusChangeEmail(lead, newStatus) {
+  // Log status change but do not email customer for now.
+  console.log('[Email] Status change notification skipped (not configured):', {
+    leadId: lead?.id || null,
+    referenceCode: lead?.referenceCode || null,
+    newStatus,
+  });
+  return 'skipped';
+}
