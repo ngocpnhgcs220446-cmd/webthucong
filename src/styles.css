@@ -674,6 +674,8 @@ p {
 .gallery-grid .gallery-item {
   break-inside: avoid;
   margin-bottom: 24px;
+  display: inline-block;
+  width: 100%;
 }
 
 .gallery-grid img {

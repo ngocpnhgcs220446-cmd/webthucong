@@ -1118,6 +1118,9 @@
   
   .gallery-grid .gallery-item {
     margin-bottom: 12px !important;
+    display: inline-block !important;
+    width: 100% !important;
+    break-inside: avoid !important;
   }
 
   /* ==========================================================================
