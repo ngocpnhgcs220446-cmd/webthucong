@@ -1,7 +1,6 @@
 import { Link, NavLink } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import LanguageToggle from './LanguageToggle';
 import { useSettings } from '../context/SettingsContext';
 
 const nav = [
@@ -11,7 +10,7 @@ const nav = [
   { to: '/contact', label: 'Contact' }
 ];
 
-export default function Header({ language, onLanguageChange }) {
+export default function Header() {
   const [open, setOpen] = useState(false);
   const { settings } = useSettings();
 
@@ -49,7 +48,6 @@ export default function Header({ language, onLanguageChange }) {
         </nav>
 
         <div className="nav-actions">
-          <LanguageToggle language={language} onChange={onLanguageChange} />
           <Link className="btn btn-small" to="/contact">Book now</Link>
           <button className="menu-btn" onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu size={22} />

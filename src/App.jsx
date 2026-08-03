@@ -54,17 +54,11 @@ function ScrollAndTrack() {
 }
 
 export default function App() {
-  const [language, setLanguage] = useState(localStorage.getItem('experience_language') || 'en');
   const location = useLocation();
 
   useEffect(() => {
     initAnalytics();
   }, []);
-
-  const updateLanguage = (value) => {
-    setLanguage(value);
-    localStorage.setItem('experience_language', value);
-  };
 
   return (
     <AuthProvider>
@@ -75,7 +69,7 @@ export default function App() {
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
             {/* Public Routes - Wrapped in Layout */}
-            <Route element={<Layout language={language} onLanguageChange={updateLanguage}><Outlet /></Layout>}>
+            <Route element={<Layout><Outlet /></Layout>}>
               <Route path="/" element={<Home />} />
               <Route path="/about" element={<About />} />
               <Route path="/services" element={<Services />} />
