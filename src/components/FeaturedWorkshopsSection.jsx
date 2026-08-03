@@ -240,7 +240,7 @@ function EmptyState({ isAdmin }) {
 
 // ─── MAIN SECTION ────────────────────────────────────────────────────────────
 export default function FeaturedWorkshopsSection({ products = [], title, description, isAdmin = false }) {
-  const items = products.filter(p => p.featured && p.active).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).slice(0, 4);
+  const items = products.filter(p => p.featured && (p.active || p.status === 'published')).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).slice(0, 4);
   const hero = items[0] || null;
   const medium = items[1] || null;
   const compacts = items.slice(2, 4);

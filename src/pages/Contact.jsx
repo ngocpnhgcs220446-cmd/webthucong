@@ -440,7 +440,7 @@ export default function Contact() {
                         {errors.email && <p style={{ color: '#ef4444', fontSize: '13px', marginTop: '6px', margin: 0 }}>{errors.email}</p>}
                       </div>
                       <div>
-                        <label htmlFor="ct-service" className="premium-label">Interested Service</label>
+                        <label htmlFor="ct-service" className="premium-label">Service</label>
                         <div className="premium-input-wrap">
                           <Tag size={20} />
                           <select id="ct-service" name="interestedService" value={form.interestedService} onChange={update}>
