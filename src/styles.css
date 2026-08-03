@@ -723,6 +723,12 @@ p {
   color: var(--green-darkest);
   font-style: italic;
   line-height: 1.6;
+  flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .testimonial-author {

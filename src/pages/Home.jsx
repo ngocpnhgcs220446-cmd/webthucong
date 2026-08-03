@@ -316,8 +316,8 @@ export default function Home() {
               </ScrollReveal>
               <div className="testimonial-grid">
                 {testimonials.map((t, i) => (
-                  <ScrollReveal key={t.name} delay={i * 0.1}>
-                    <div className="testimonial-card">
+                  <ScrollReveal key={t.name} delay={i * 0.1} style={{ height: '100%' }}>
+                    <div className="testimonial-card" style={{ height: '100%' }}>
                       <div className="testimonial-content">
                         {t.comment}
                       </div>
